@@ -1,6 +1,6 @@
-# 🛒 SembakoKasir - Offline Pro (PWA)
+# 🛒 SyazaniKasir - Offline Pro (PWA)
 
-**SembakoKasir Offline Pro** adalah aplikasi Kasir (Point of Sale) berbasis Web & PWA yang dirancang khusus untuk toko kelontong, sembako, dan UMKM. Aplikasi ini bekerja **100% secara offline** di dalam browser tanpa memerlukan server backend atau database eksternal.
+**SyazaniKasir Offline Pro** adalah aplikasi Kasir (Point of Sale) berbasis Web & PWA yang dirancang khusus untuk toko kelontong, sembako, dan UMKM. Aplikasi ini bekerja **100% secara offline** di dalam browser tanpa memerlukan server backend atau database eksternal.
 
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 ![PWA](https://img.shields.io/badge/PWA-Ready-blue.svg)
