@@ -621,19 +621,43 @@
         }
 
         function mulaiScannerKasir() {
-            if (!html5QrCodeKasir) {
-                html5QrCodeKasir = new Html5Qrcode("reader");
-            }
+            // Opsi konfigurasi scanner yang lebih presisi
+const scanConfig = { 
+    fps: 10, 
+    qrbox: { width: 250, height: 150 },
+    aspectRatio: 1.0
+};
+
+function mulaiScannerKasir() {
+    if (!html5QrCodeKasir) {
+        html5QrCodeKasir = new Html5Qrcode("reader");
+    }
+
+    // Menggunakan pemanggilan kamera belakang secara eksplisit
+    Html5Qrcode.getCameras().then(devices => {
+        if (devices && devices.length) {
+            // Cari kamera belakang (back/environment camera)
+            let backCamera = devices.find(cam => cam.label.toLowerCase().includes('back') || cam.label.toLowerCase().includes('rear'));
+            let cameraId = backCamera ? backCamera.id : devices[0].id;
+
             html5QrCodeKasir.start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 200, height: 140 } },
+                cameraId,
+                scanConfig,
                 (decodedText) => {
                     cariAtauTambahKeKasir(decodedText);
                     stopScanner();
                 },
-                (err) => {}
-            ).catch(err => alert("Kamera tidak diizinkan atau tidak ditemukan!"));
+                (errorMessage) => { /* ignore frame errors */ }
+            ).catch(err => {
+                alert("Gagal mengaktifkan stream kamera: " + err);
+            });
+        } else {
+            alert("Tidak ada kamera yang terdeteksi di perangkat ini.");
         }
+    }).catch(err => {
+        alert("Izin kamera ditolak atau tidak didukung: " + err);
+    });
+}
 
         function stopScanner() {
             if (html5QrCodeKasir) {
