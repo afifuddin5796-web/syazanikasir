@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manajemen Keuangan & Anggaran</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" type="image/png" href="./icon-192x192.png">
+  <meta name="theme-color" content="#0f172a">
+  
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --primary: #38bdf8;
+      --good: #4ade80;
+      --danger: #f87171;
+      --border: #334155;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 16px; max-width: 600px; margin: 0 auto; padding-bottom: 80px; }
+    h1, h2, h3 { margin-bottom: 12px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    .flex { display: flex; justify-content: space-between; align-items: center; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    input, select, button { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: #0f172a; color: var(--text); margin-top: 6px; margin-bottom: 12px; }
+    button { background: var(--primary); color: #000; font-weight: bold; border: none; cursor: pointer; }
+    button.btn-danger { background: var(--danger); color: #fff; }
+    .hist-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+    .hist-del { color: var(--danger); cursor: pointer; }
+  </style>
+</head>
+<body>
+
+  <h2>📊 Pengelola Anggaran Bulanan</h2>
+
+  <!-- Input Keuangan -->
+  <div class="card">
+    <h3>Atur Pemasukan</h3>
+    <label>Gaji Utama (Rp)</label>
+    <input type="number" id="inGaji" placeholder="0">
+    <label>Pemasukan Tambahan (Rp)</label>
+    <input type="number" id="inTambahan" placeholder="0">
+    <button onclick="saveSetup()">Simpan Anggaran</button>
+  </div>
+
+  <!-- Ringkasan -->
+  <div class="card">
+    <h3>Ringkasan Bulan Ini</h3>
+    <div class="hist-row"><span>Gaji:</span><b id="lblGaji">Rp0</b></div>
+    <div class="hist-row"><span>Tambahan:</span><b id="lblTambahan">Rp0</b></div>
+    <div class="hist-row"><span>Total Pemasukan:</span><b id="lblTotalMasuk">Rp0</b></div>
+    <div class="hist-row"><span>Total Terpakai:</span><b id="lblTerpakai">Rp0</b></div>
+    <div class="hist-row"><span>Sisa Saldo:</span><b id="lblSisa" style="color:var(--good)">Rp0</b></div>
+  </div>
+
+  <!-- Catat Transaksi -->
+  <div class="card">
+    <h3>Tambah Transaksi</h3>
+    <label>Keterangan / Pos</label>
+    <input type="text" id="txKet" placeholder="Misal: Belanja Bulanan">
+    <label>Nominal (Rp)</label>
+    <input type="number" id="txNominal" placeholder="0">
+    <button onclick="addTransaction()">Tambah Transaksi</button>
+  </div>
+
+  <!-- Riwayat -->
+  <div class="card">
+    <h3>Riwayat Transaksi</h3>
+    <div id="histList"></div>
+  </div>
+
+  <script>
+    // Inisialisasi Data Storage
+    let data = JSON.parse(localStorage.getItem('keuangan_data')) || {
+      gaji: 0,
+      tambahan: 0,
+      history: []
+    };
+
+    function formatRp(num) {
+      return 'Rp' + (num || 0).toLocaleString('id-ID');
+    }
+
+    function saveData() {
+      localStorage.setItem('keuangan_data', JSON.stringify(data));
+      renderHistory();
+    }
+
+    function saveSetup() {
+      const g = parseFloat(document.getElementById('inGaji').value) || 0;
+      const t = parseFloat(document.getElementById('inTambahan').value) || 0;
+      data.gaji = g;
+      data.tambahan = t;
+      saveData();
+    }
+
+    function addTransaction() {
+      const ket = document.getElementById('txKet').value;
+      const nom = parseFloat(document.getElementById('txNominal').value) || 0;
+
+      if (!ket || nom <= 0) {
+        alert('Isi keterangan dan nominal dengan benar!');
+        return;
+      }
+
+      data.history.push({ id: Date.now(), ket, nom });
+      document.getElementById('txKet').value = '';
+      document.getElementById('txNominal').value = '';
+      saveData();
+    }
+
+    function deleteHistory(id) {
+      if (confirm('Hapus riwayat transaksi ini?')) {
+        data.history = data.history.filter(r => r.id !== id);
+        saveData();
+      }
+    }
+
+    function renderHistory() {
+      document.getElementById('inGaji').value = data.gaji || '';
+      document.getElementById('inTambahan').value = data.tambahan || '';
+
+      const totalMasuk = data.gaji + data.tambahan;
+      const totalTerpakai = data.history.reduce((acc, item) => acc + item.nom, 0);
+      const sisa = totalMasuk - totalTerpakai;
+
+      document.getElementById('lblGaji').innerText = formatRp(data.gaji);
+      document.getElementById('lblTambahan').innerText = formatRp(data.tambahan);
+      document.getElementById('lblTotalMasuk').innerText = formatRp(totalMasuk);
+      document.getElementById('lblTerpakai').innerText = formatRp(totalTerpakai);
+      
+      const sisaEl = document.getElementById('lblSisa');
+      sisaEl.innerText = formatRp(sisa);
+      sisaEl.style.color = sisa < 0 ? 'var(--danger)' : 'var(--good)';
+
+      const listEl = document.getElementById('histList');
+      listEl.innerHTML = '';
+
+      if (data.history.length === 0) {
+        listEl.innerHTML = '<div style="color:var(--muted); text-align:center;">Belum ada transaksi</div>';
+        return;
+      }
+
+      data.history.slice().reverse().forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'hist-row';
+        div.innerHTML = `
+          <span>${item.ket}</span>
+          <div>
+            <b>${formatRp(item.nom)}</b>
+            <span class="hist-del" onclick="deleteHistory(${item.id})" style="margin-left:10px;">✕</span>
+          </div>
+        `;
+        listEl.appendChild(div);
+      });
+    }
+
+    // Jalankan render awal
+    renderHistory();
+
+    // Register Service Worker untuk PWA Offline tanpa mengganggu script utama
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('Service Worker terdaftar:', reg))
+          .catch(err => console.error('Gagal mendaftar Service Worker:', err));
+      });
+    }
+  </script>
+</body>
+</html>
