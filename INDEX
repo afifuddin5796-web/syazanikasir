@@ -232,8 +232,8 @@
                 <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 border-b border-slate-700 pb-4">
                         <div>
-                            <h3 class="text-base font-bold text-emerald-400">💰 Laporan & Rekap Penjualan</h3>
-                            <p class="text-xs text-slate-400">Filter hasil penjualan dan ekspor ke format Excel.</p>
+                            <h3 class="text-base font-bold text-emerald-400">💰 Laporan & Manajemen Keuangan</h3>
+                            <p class="text-xs text-slate-400">Kelola catatan transaksi, ubah nominal, atau tambah entri keuangan manual.</p>
                         </div>
 
                         <div class="flex flex-wrap items-center gap-2">
@@ -251,9 +251,21 @@
                         </div>
                     </div>
 
+                    <!-- FORM INPUT MANUAL KEUANGAN -->
+                    <div class="bg-slate-900 p-4 rounded-xl border border-slate-700 mb-6">
+                        <h4 class="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-3">➕ Tambah Catatan Transaksi Manual</h4>
+                        <form onsubmit="tambahTransaksiManualKeuangan(event)" class="grid grid-cols-12 gap-3 text-xs">
+                            <input id="trx-manual-nama" type="text" placeholder="Keterangan / Item Belanja" required class="col-span-12 md:col-span-5 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500">
+                            <input id="trx-manual-nominal" type="number" placeholder="Nominal Total (Rp)" required class="col-span-12 md:col-span-4 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500">
+                            <button type="submit" class="col-span-12 md:col-span-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg py-2 transition shadow-md">
+                                + Simpan Transaksi
+                            </button>
+                        </form>
+                    </div>
+
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                         <div class="bg-slate-900 p-4 rounded-xl border border-slate-700">
-                            <p class="text-xs text-slate-400">Total Pemasukan (<span id="periode-label">Semua</span>)</p>
+                            <p class="text-xs text-slate-400">Total Pemasukan (<span id="periode-label">SEMUA</span>)</p>
                             <p id="total-pemasukan" class="text-2xl font-bold text-emerald-400 mt-1">Rp 0</p>
                         </div>
                         <div class="bg-slate-900 p-4 rounded-xl border border-slate-700">
@@ -262,7 +274,7 @@
                         </div>
                     </div>
 
-                    <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3">📜 Riwayat Transaksi Ter-rekap</h4>
+                    <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3">📜 Riwayat & Opsi Edit Keuangan</h4>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-xs text-slate-300 border-collapse">
                             <thead>
@@ -271,7 +283,7 @@
                                     <th class="p-2.5">Tanggal & Waktu</th>
                                     <th class="p-2.5">Item Belanja</th>
                                     <th class="p-2.5 text-right">Total Transaksi</th>
-                                    <th class="p-2.5 text-center">Aksi</th>
+                                    <th class="p-2.5 text-center min-w-[130px]">Aksi Edit / Hapus</th>
                                 </tr>
                             </thead>
                             <tbody id="riwayat-transaksi-body" class="divide-y divide-slate-700/50"></tbody>
@@ -343,7 +355,7 @@
     <div id="modal-edit-keuangan" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 max-w-sm w-full space-y-4 shadow-2xl">
             <div class="flex justify-between items-center border-b border-slate-700 pb-3">
-                <h3 class="text-sm font-bold text-emerald-400">✏️ Edit Transaksi Keuangan</h3>
+                <h3 class="text-sm font-bold text-emerald-400">✏️ Edit Nominal Keuangan</h3>
                 <button onclick="tutupModalEditKeuangan()" class="text-slate-400 hover:text-slate-200">✕</button>
             </div>
             <form onsubmit="simpanEditKeuangan(event)" class="space-y-3 text-xs">
@@ -557,8 +569,8 @@
                             <td class="p-2.5 text-slate-400 max-w-xs truncate">${ringkasanItem}</td>
                             <td class="p-2.5 text-right font-bold text-emerald-400">${formatRupiah(trx.total)}</td>
                             <td class="p-2.5 text-center">
-                                <button onclick="bukaModalEditKeuangan('${trx.id}')" class="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-1 rounded hover:bg-amber-500 hover:text-white transition mr-1">Edit</button>
-                                <button onclick="hapusRiwayatKeuangan('${trx.id}')" class="text-xs bg-rose-500/20 text-rose-400 border border-rose-500/30 px-2 py-1 rounded hover:bg-rose-500 hover:text-white transition">Hapus</button>
+                                <button onclick="bukaModalEditKeuangan('${trx.id}')" class="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-1 rounded hover:bg-amber-500 hover:text-white transition mr-1">✏️ Edit</button>
+                                <button onclick="hapusRiwayatKeuangan('${trx.id}')" class="text-xs bg-rose-500/20 text-rose-400 border border-rose-500/30 px-2 py-1 rounded hover:bg-rose-500 hover:text-white transition">🗑️ Hapus</button>
                             </td>
                         </tr>
                     `;
@@ -570,7 +582,28 @@
             document.getElementById('periode-label').innerText = filterAktif.toUpperCase();
         }
 
-        // FUNGSI EDIT & HAPUS KEUANGAN
+        // FUNGSI KEUANGAN (TAMBAH MANUAL, EDIT & HAPUS)
+        function tambahTransaksiManualKeuangan(e) {
+            e.preventDefault();
+            const nama = document.getElementById('trx-manual-nama').value;
+            const nominal = parseFloat(document.getElementById('trx-manual-nominal').value);
+
+            if (nama && nominal >= 0) {
+                const idTrx = "TRX-MANUAL-" + Date.now().toString().slice(-4);
+                riwayatTransaksi.unshift({
+                    id: idTrx,
+                    waktu: new Date(),
+                    items: [{ nama: nama, qty: 1, harga: nominal }],
+                    total: nominal
+                });
+
+                document.getElementById('trx-manual-nama').value = "";
+                document.getElementById('trx-manual-nominal').value = "";
+                updateUI();
+                alert(`Transaksi ${idTrx} berhasil ditambahkan ke laporan!`);
+            }
+        }
+
         function bukaModalEditKeuangan(id) {
             const trx = riwayatTransaksi.find(t => t.id === id);
             if (trx) {
@@ -594,12 +627,12 @@
                 riwayatTransaksi[index].total = totalBaru;
                 updateUI();
                 tutupModalEditKeuangan();
-                alert(`Data keuangan transaksi ${id} berhasil diperbarui!`);
+                alert(`Data nominal transaksi ${id} berhasil diperbarui!`);
             }
         }
 
         function hapusRiwayatKeuangan(id) {
-            if (confirm(`Yakin ingin menghapus transaksi ${id} dari laporan keuangan?`)) {
+            if (confirm(`Yakin ingin menghapus riwayat transaksi ${id}?`)) {
                 riwayatTransaksi = riwayatTransaksi.filter(t => t.id !== id);
                 updateUI();
             }
@@ -611,7 +644,6 @@
                 return alert("Tidak ada data transaksi untuk diekspor pada periode ini!");
             }
 
-            // Susun Format Data Spreadsheet
             const excelRows = dataFilteredSaatIni.map(trx => ({
                 "ID Transaksi": trx.id,
                 "Tanggal & Waktu": formatWaktuLengkap(new Date(trx.waktu)),
@@ -619,14 +651,12 @@
                 "Total Transaksi (Rp)": trx.total
             }));
 
-            // Generate Sheet & Workbook
             const worksheet = XLSX.utils.json_to_sheet(excelRows);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Penjualan");
 
-            // Format Ukuran Kolom Otomatis
             worksheet['!cols'] = [
-                { wch: 15 },
+                { wch: 18 },
                 { wch: 22 },
                 { wch: 40 },
                 { wch: 20 }
