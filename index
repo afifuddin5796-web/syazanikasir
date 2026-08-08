@@ -518,33 +518,37 @@
             ['kasir', 'stok', 'keuangan', 'database'].forEach(t => {
                 document.getElementById(`page-${t}`).classList.add('hidden');
                 
-                const navBtn = document.getElementById(`nav-${t}`);
-                if (navBtn) {
-                    navBtn.className = "nav-btn w-full text-left flex items-center gap-3 px-3 py-2.5 text-slate-300 hover:bg-slate-700/60 rounded-lg text-sm transition";
+                const nav = document.getElementById(`nav-${t}`);
+                if (nav) {
+                    nav.classList.remove('bg-emerald-600', 'text-white');
+                    nav.classList.add('text-slate-300');
                 }
                 
-                const mobBtn = document.getElementById(`mob-${t}`);
-                if (mobBtn) {
-                    mobBtn.className = "flex flex-col items-center text-slate-400 text-[10px] font-medium";
+                const mob = document.getElementById(`mob-${t}`);
+                if (mob) {
+                    mob.classList.remove('text-emerald-400');
+                    mob.classList.add('text-slate-400');
                 }
             });
 
             document.getElementById(`page-${tab}`).classList.remove('hidden');
-            
+
             const activeNav = document.getElementById(`nav-${tab}`);
             if (activeNav) {
-                activeNav.className = "nav-btn w-full text-left flex items-center gap-3 px-3 py-2.5 bg-emerald-600 text-white font-medium rounded-lg text-sm shadow-md transition";
+                activeNav.classList.add('bg-emerald-600', 'text-white');
+                activeNav.classList.remove('text-slate-300');
             }
-            
+
             const activeMob = document.getElementById(`mob-${tab}`);
             if (activeMob) {
-                activeMob.className = "flex flex-col items-center text-emerald-400 text-[10px] font-medium";
+                activeMob.classList.add('text-emerald-400');
+                activeMob.classList.remove('text-slate-400');
             }
 
             const titles = {
                 kasir: "Mode Kasir (Offline)",
                 stok: "Manajemen Stok Barang",
-                keuangan: "Keuangan & Laporan Penjualan",
+                keuangan: "Keuangan & Rekap Laporan",
                 database: "Database Master Produk"
             };
             document.getElementById('page-title').innerText = titles[tab];
@@ -557,18 +561,24 @@
             e.preventDefault();
             const nama = document.getElementById('input-nama').value;
             const harga = parseFloat(document.getElementById('input-harga').value);
-            
-            keranjang.push({
-                id: "MANUAL-" + Date.now(),
-                nama: nama,
-                harga: harga,
-                qty: 1,
-                info: "Input Manual"
-            });
 
-            document.getElementById('input-nama').value = "";
-            document.getElementById('input-harga').value = "";
-            updateUI();
+            if (nama && harga) {
+                const existing = keranjang.find(i => i.nama.toLowerCase() === nama.toLowerCase());
+                if (existing) {
+                    existing.qty += 1;
+                } else {
+                    keranjang.push({
+                        id: 'MANUAL-' + Date.now(),
+                        nama: nama,
+                        harga: harga,
+                        qty: 1,
+                        info: "Input Manual"
+                    });
+                }
+                document.getElementById('input-nama').value = '';
+                document.getElementById('input-harga').value = '';
+                updateUI();
+            }
         }
 
         function hapusItem(index) {
@@ -587,93 +597,26 @@
                 return;
             }
 
-            let total = 0;
-            const items = keranjang.map(i => {
-                total += i.harga * i.qty;
-                return { nama: i.nama, qty: i.qty, harga: i.harga };
-            });
-
-            const trx = {
+            const total = keranjang.reduce((sum, item) => sum + (item.harga * item.qty), 0);
+            const trxBaru = {
                 id: "TRX-" + Math.floor(1000 + Math.random() * 9000),
                 waktu: new Date(),
-                items: items,
+                items: JSON.parse(JSON.stringify(keranjang)),
                 total: total
             };
 
-            riwayatTransaksi.unshift(trx);
-            
+            riwayatTransaksi.unshift(trxBaru);
+
             keranjang.forEach(item => {
-                const dbItem = masterDatabase.find(d => d.id === item.id || d.nama === item.nama);
+                const dbItem = masterDatabase.find(d => d.id === item.id || d.nama.toLowerCase() === item.nama.toLowerCase());
                 if (dbItem) {
                     dbItem.stok = Math.max(0, dbItem.stok - item.qty);
                 }
             });
 
-            alert(`Transaksi berhasil diselesaikan! ID: ${trx.id}`);
+            alert("Transaksi Berhasil Disimpan!");
             keranjang = [];
             updateUI();
-        }
-
-        function mulaiScannerKasir() {
-            if (html5QrCodeKasir) stopScanner();
-            html5QrCodeKasir = new Html5Qrcode("reader");
-            html5QrCodeKasir.start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 200, height: 150 } },
-                (decodedText) => {
-                    const item = masterDatabase.find(d => d.id === decodedText);
-                    if (item) {
-                        const existing = keranjang.find(k => k.id === item.id);
-                        if (existing) {
-                            existing.qty++;
-                        } else {
-                            keranjang.push({
-                                id: item.id,
-                                nama: item.nama,
-                                harga: item.harga,
-                                qty: 1,
-                                info: "Barcode: " + item.id
-                            });
-                        }
-                        updateUI();
-                    } else {
-                        alert("Barang tidak ditemukan di database! Barcode: " + decodedText);
-                    }
-                },
-                (error) => {}
-            ).catch(err => console.log(err));
-        }
-
-        function stopScanner() {
-            if (html5QrCodeKasir) {
-                html5QrCodeKasir.stop().then(() => {
-                    html5QrCodeKasir = null;
-                    document.getElementById('reader').innerText = "📷 Camera Scanner Matikan";
-                }).catch(err => console.log(err));
-            }
-        }
-
-        function mulaiScannerDB() {
-            if (html5QrCodeDB) stopScannerDB();
-            html5QrCodeDB = new Html5Qrcode("reader-db");
-            html5QrCodeDB.start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 200, height: 150 } },
-                (decodedText) => {
-                    document.getElementById('db-barcode').value = decodedText;
-                    stopScannerDB();
-                },
-                (error) => {}
-            ).catch(err => console.log(err));
-        }
-
-        function stopScannerDB() {
-            if (html5QrCodeDB) {
-                html5QrCodeDB.stop().then(() => {
-                    html5QrCodeDB = null;
-                    document.getElementById('reader-db').innerText = "";
-                }).catch(err => console.log(err));
-            }
         }
 
         function cetakStruk() {
@@ -681,8 +624,8 @@
         }
 
         function simpanGambar() {
-            const area = document.getElementById('struk-area');
-            html2canvas(area).then(canvas => {
+            const strukNode = document.getElementById('struk-area');
+            html2canvas(strukNode).then(canvas => {
                 const link = document.createElement('a');
                 link.download = `Struk-${Date.now()}.png`;
                 link.href = canvas.toDataURL();
@@ -691,21 +634,75 @@
         }
 
         function kirimWA() {
-            if (keranjang.length === 0) {
-                alert("Keranjang kosong!");
+            if (keranjang.length === 0 && riwayatTransaksi.length === 0) {
+                alert("Tidak ada transaksi untuk dikirim.");
                 return;
             }
-            let teks = `*${profilToko.nama}*\n${profilToko.alamat}\n-----------------------------\n`;
+
+            let teks = `*${profilToko.nama}*\n${profilToko.alamat}\n------------------------\n`;
             let total = 0;
-            keranjang.forEach(i => {
-                const sub = i.harga * i.qty;
+
+            const itemsToExport = keranjang.length > 0 ? keranjang : riwayatTransaksi[0].items;
+
+            itemsToExport.forEach(item => {
+                const sub = item.harga * item.qty;
                 total += sub;
-                teks += `${i.qty}x ${i.nama} = Rp ${sub.toLocaleString('id-ID')}\n`;
+                teks += `${item.nama} x${item.qty} = ${formatRupiah(sub)}\n`;
             });
-            teks += `-----------------------------\n*Total: Rp ${total.toLocaleString('id-ID')}*\nKasir: ${profilToko.kasir}\nTerima kasih!`;
-            
-            const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(teks)}`;
-            window.open(url, '_blank');
+
+            teks += `------------------------\n*TOTAL: ${formatRupiah(total)}*\n\nTerima kasih telah berbelanja!`;
+
+            const encoded = encodeURIComponent(teks);
+            window.open(`https://wa.me/?text=${encoded}`, '_blank');
+        }
+
+        function mulaiScannerKasir() {
+            if (!html5QrCodeKasir) {
+                html5QrCodeKasir = new Html5Qrcode("reader");
+            }
+            html5QrCodeKasir.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 200, height: 150 } },
+                (decodedText) => {
+                    prosesHasilScan(decodedText);
+                    stopScanner();
+                },
+                (errorMessage) => {}
+            ).catch(err => {
+                alert("Kamera tidak ditemukan atau ditolak.");
+            });
+        }
+
+        function stopScanner() {
+            if (html5QrCodeKasir && html5QrCodeKasir.isScanning) {
+                html5QrCodeKasir.stop().then(() => {
+                    document.getElementById('reader').innerText = "📷 Camera Scanner Matikan";
+                });
+            }
+        }
+
+        function prosesHasilScan(code) {
+            const produk = masterDatabase.find(p => p.id === code);
+            if (produk) {
+                const itemKeranjang = keranjang.find(k => k.id === code);
+                if (itemKeranjang) {
+                    itemKeranjang.qty += 1;
+                } else {
+                    keranjang.push({
+                        id: produk.id,
+                        nama: produk.nama,
+                        harga: produk.harga,
+                        qty: 1,
+                        info: `Barcode: ${produk.id}`
+                    });
+                }
+                updateUI();
+            } else {
+                if (confirm(`Produk dengan Barcode [${code}] belum terdaftar. Tambah ke Database?`)) {
+                    switchTab('database');
+                    document.getElementById('db-barcode').value = code;
+                }
+            }
         }
 
         function renderStokCards() {
@@ -716,13 +713,13 @@
                 container.innerHTML += `
                     <div class="bg-slate-900 p-3 rounded-lg border border-slate-700 flex justify-between items-center text-xs">
                         <div>
-                            <p class="font-bold text-slate-200">${item.nama}</p>
-                            <p class="text-slate-400 text-[10px]">${formatRupiah(item.harga)} | Code: ${item.id}</p>
+                            <p class="font-semibold text-slate-200">${item.nama}</p>
+                            <p class="text-[10px] text-slate-400">Kode: ${item.id} | ${formatRupiah(item.harga)}</p>
                         </div>
                         <div class="flex items-center gap-2">
-                            <button onclick="ubahStok(${index}, -1)" class="bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded text-slate-200 font-bold">-</button>
-                            <span class="font-bold text-emerald-400 min-w-[24px] text-center">${item.stok}</span>
-                            <button onclick="ubahStok(${index}, 1)" class="bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded text-slate-200 font-bold">+</button>
+                            <button onclick="ubahStok(${index}, -1)" class="bg-slate-700 hover:bg-slate-600 text-slate-200 w-6 h-6 rounded flex items-center justify-center font-bold">-</button>
+                            <span class="font-bold text-amber-400 min-w-[20px] text-center">${item.stok}</span>
+                            <button onclick="ubahStok(${index}, 1)" class="bg-slate-700 hover:bg-slate-600 text-slate-200 w-6 h-6 rounded flex items-center justify-center font-bold">+</button>
                         </div>
                     </div>
                 `;
@@ -734,124 +731,44 @@
             updateUI();
         }
 
-        function renderDatabaseTable() {
-            const tbody = document.getElementById('database-table-body');
+        function renderLaporan() {
+            const tbody = document.getElementById('riwayat-transaksi-body');
             tbody.innerHTML = "";
 
-            masterDatabase.forEach((item, index) => {
-                const imgHtml = item.foto 
-                    ? `<img src="${item.foto}" class="w-8 h-8 object-cover rounded">` 
-                    : `<div class="w-8 h-8 bg-slate-700 rounded flex items-center justify-center text-[10px]">📦</div>`;
-
-                tbody.innerHTML += `
-                    <tr>
-                        <td class="p-2.5">${imgHtml}</td>
-                        <td class="p-2.5 font-mono text-[11px] text-slate-400">${item.id}</td>
-                        <td class="p-2.5 font-semibold text-slate-200">${item.nama}</td>
-                        <td class="p-2.5 text-emerald-400 font-medium">${formatRupiah(item.harga)}</td>
-                        <td class="p-2.5 font-bold">${item.stok}</td>
-                        <td class="p-2.5 text-center">
-                            <button onclick="hapusDatabaseItem(${index})" class="text-rose-400 hover:text-rose-300 font-medium">Hapus</button>
-                        </td>
-                    </tr>
-                `;
-            });
-        }
-
-        function tambahDatabaseBarang(e) {
-            e.preventDefault();
-            const barcode = document.getElementById('db-barcode').value || ("ITEM-" + Date.now());
-            const nama = document.getElementById('db-nama').value;
-            const harga = parseFloat(document.getElementById('db-harga').value);
-            const stok = parseInt(document.getElementById('db-stok').value);
-            const fileInput = document.getElementById('db-foto');
-
-            const prosesSimpan = (fotoUrl) => {
-                masterDatabase.push({
-                    id: barcode,
-                    nama: nama,
-                    harga: harga,
-                    stok: stok,
-                    foto: fotoUrl
-                });
-
-                document.getElementById('db-barcode').value = "";
-                document.getElementById('db-nama').value = "";
-                document.getElementById('db-harga').value = "";
-                document.getElementById('db-stok').value = "";
-                fileInput.value = "";
-
-                updateUI();
-            };
-
-            if (fileInput.files && fileInput.files[0]) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    prosesSimpan(e.target.result);
-                };
-                reader.readAsDataURL(fileInput.files[0]);
-            } else {
-                prosesSimpan(null);
-            }
-        }
-
-        function hapusDatabaseItem(index) {
-            if (confirm("Yakin ingin menghapus barang ini dari database?")) {
-                masterDatabase.splice(index, 1);
-                updateUI();
-            }
-        }
-
-        function filterLaporan(jenis) {
-            filterAktif = jenis;
-            ['semua', 'hari', 'minggu', 'bulan'].forEach(f => {
-                const btn = document.getElementById(`filter-${f}`);
-                if (btn) {
-                    if (f === jenis) {
-                        btn.className = "px-3 py-1.5 text-xs font-semibold rounded-md bg-emerald-600 text-white shadow";
-                    } else {
-                        btn.className = "px-3 py-1.5 text-xs font-semibold rounded-md text-slate-300 hover:bg-slate-700";
-                    }
-                }
-            });
-            renderLaporan();
-        }
-
-        function renderLaporan() {
-            const now = new Date();
+            const sekarang = new Date();
             dataFilteredSaatIni = riwayatTransaksi.filter(trx => {
                 const tDate = new Date(trx.waktu);
                 if (filterAktif === 'hari') {
-                    return tDate.toDateString() === now.toDateString();
+                    return tDate.toDateString() === sekarang.toDateString();
                 } else if (filterAktif === 'minggu') {
-                    const selisihHari = (now - tDate) / (1000 * 60 * 60 * 24);
+                    const selisihHari = (sekarang - tDate) / (1000 * 60 * 60 * 24);
                     return selisihHari <= 7;
                 } else if (filterAktif === 'bulan') {
-                    return tDate.getMonth() === now.getMonth() && tDate.getFullYear() === now.getFullYear();
+                    return tDate.getMonth() === sekarang.getMonth() && tDate.getFullYear() === sekarang.getFullYear();
                 }
                 return true;
             });
 
-            const tbody = document.getElementById('riwayat-transaksi-body');
             let totalPemasukan = 0;
-            tbody.innerHTML = "";
 
             if (dataFilteredSaatIni.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-500">Tidak ada riwayat transaksi pada periode ini.</td></tr>`;
             } else {
-                dataFilteredSaatIni.forEach((trx) => {
+                dataFilteredSaatIni.forEach(trx => {
                     totalPemasukan += trx.total;
-                    const itemsStr = trx.items.map(i => `${i.qty}x ${i.nama}`).join(', ');
+                    const itemDesc = trx.items.map(i => `${i.nama} (${i.qty}x)`).join(', ');
 
                     tbody.innerHTML += `
-                        <tr>
-                            <td class="p-3 font-mono text-[11px] text-slate-400">${trx.id}</td>
-                            <td class="p-3 text-[11px]">${formatWaktuLengkap(trx.waktu)}</td>
-                            <td class="p-3 font-medium text-slate-200">${itemsStr}</td>
-                            <td class="p-3 text-right font-bold text-emerald-400">${formatRupiah(trx.total)}</td>
-                            <td class="p-3 text-center space-x-2">
-                                <button onclick="bukaModalEditKeuangan('${trx.id}')" class="text-amber-400 hover:underline">Edit</button>
-                                <button onclick="hapusTransaksiKeuangan('${trx.id}')" class="text-rose-400 hover:underline">Hapus</button>
+                        <tr class="hover:bg-slate-700/30">
+                            <td class="p-3 font-mono text-emerald-400 font-semibold">${trx.id}</td>
+                            <td class="p-3 text-slate-400">${formatWaktuLengkap(trx.waktu)}</td>
+                            <td class="p-3 max-w-xs truncate">${itemDesc}</td>
+                            <td class="p-3 text-right font-bold text-slate-200">${formatRupiah(trx.total)}</td>
+                            <td class="p-3 text-center">
+                                <div class="flex justify-center gap-1">
+                                    <button onclick="bukaModalEditKeuangan('${trx.id}')" class="bg-amber-600/80 hover:bg-amber-500 text-white px-2 py-1 rounded text-[10px]">Edit</button>
+                                    <button onclick="hapusRiwayat('${trx.id}')" class="bg-rose-600/80 hover:bg-rose-500 text-white px-2 py-1 rounded text-[10px]">Hapus</button>
+                                </div>
                             </td>
                         </tr>
                     `;
@@ -860,7 +777,20 @@
 
             document.getElementById('total-pemasukan').innerText = formatRupiah(totalPemasukan);
             document.getElementById('total-transaksi-count').innerText = `${dataFilteredSaatIni.length} Transaksi`;
-            document.getElementById('periode-label').innerText = filterAktif.toUpperCase();
+        }
+
+        function filterLaporan(mode) {
+            filterAktif = mode;
+            ['semua', 'hari', 'minggu', 'bulan'].forEach(f => {
+                const btn = document.getElementById(`filter-${f}`);
+                if (f === mode) {
+                    btn.className = "px-3 py-1.5 text-xs font-semibold rounded-md bg-emerald-600 text-white shadow";
+                } else {
+                    btn.className = "px-3 py-1.5 text-xs font-semibold rounded-md text-slate-300 hover:bg-slate-700";
+                }
+            });
+            document.getElementById('periode-label').innerText = mode.toUpperCase();
+            renderLaporan();
         }
 
         function tambahTransaksiManualKeuangan(e) {
@@ -868,16 +798,18 @@
             const nama = document.getElementById('trx-manual-nama').value;
             const nominal = parseFloat(document.getElementById('trx-manual-nominal').value);
 
-            riwayatTransaksi.unshift({
-                id: "TRX-M-" + Math.floor(1000 + Math.random() * 9000),
-                waktu: new Date(),
-                items: [{ nama: nama, qty: 1, harga: nominal }],
-                total: nominal
-            });
+            if (nama && nominal) {
+                riwayatTransaksi.unshift({
+                    id: "TRX-MANUAL-" + Math.floor(1000 + Math.random() * 9000),
+                    waktu: new Date(),
+                    items: [{ nama: nama, qty: 1, harga: nominal }],
+                    total: nominal
+                });
 
-            document.getElementById('trx-manual-nama').value = "";
-            document.getElementById('trx-manual-nominal').value = "";
-            updateUI();
+                document.getElementById('trx-manual-nama').value = '';
+                document.getElementById('trx-manual-nominal').value = '';
+                updateUI();
+            }
         }
 
         function bukaModalEditKeuangan(id) {
@@ -899,19 +831,15 @@
             const totalBaru = parseFloat(document.getElementById('edit-trx-total').value);
 
             const trx = riwayatTransaksi.find(t => t.id === id);
-            if (trx) {
+            if (trx && !isNaN(totalBaru)) {
                 trx.total = totalBaru;
-                if (trx.items.length === 1) {
-                    trx.items[0].harga = totalBaru;
-                }
+                tutupModalEditKeuangan();
+                updateUI();
             }
-
-            tutupModalEditKeuangan();
-            updateUI();
         }
 
-        function hapusTransaksiKeuangan(id) {
-            if (confirm("Hapus catatan transaksi ini dari riwayat?")) {
+        function hapusRiwayat(id) {
+            if (confirm(`Yakin ingin menghapus transaksi ${id}?`)) {
                 riwayatTransaksi = riwayatTransaksi.filter(t => t.id !== id);
                 updateUI();
             }
@@ -923,24 +851,116 @@
                 return;
             }
 
-            const dataExcel = dataFilteredSaatIni.map(t => ({
-                "ID Transaksi": t.id,
-                "Tanggal & Waktu": formatWaktuLengkap(t.waktu),
-                "Item Belanja": t.items.map(i => `${i.qty}x ${i.nama}`).join(', '),
-                "Total (Rp)": t.total
+            const excelData = dataFilteredSaatIni.map(trx => ({
+                "ID Transaksi": trx.id,
+                "Tanggal & Waktu": formatWaktuLengkap(trx.waktu),
+                "Daftar Item": trx.items.map(i => `${i.nama} (${i.qty}x)`).join(', '),
+                "Total Nominal (Rp)": trx.total
             }));
 
-            const worksheet = XLSX.utils.json_to_sheet(dataExcel);
+            const worksheet = XLSX.utils.json_to_sheet(excelData);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Penjualan");
 
             XLSX.writeFile(workbook, `Laporan_Penjualan_${filterAktif}_${Date.now()}.xlsx`);
         }
 
-        // Inisialisasi awal UI saat halaman dimuat
-        window.onload = function() {
-            updateUI();
-        };
+        function renderDatabaseTable() {
+            const tbody = document.getElementById('database-table-body');
+            tbody.innerHTML = "";
+
+            masterDatabase.forEach((item, index) => {
+                const imgTag = item.foto 
+                    ? `<img src="${item.foto}" class="w-8 h-8 object-cover rounded shadow">`
+                    : `<div class="w-8 h-8 bg-slate-700 rounded flex items-center justify-center text-[10px] text-slate-400">No Img</div>`;
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-700/30">
+                        <td class="p-2.5">${imgTag}</td>
+                        <td class="p-2.5 font-mono text-slate-400">${item.id}</td>
+                        <td class="p-2.5 font-semibold text-slate-200">${item.nama}</td>
+                        <td class="p-2.5 text-emerald-400 font-bold">${formatRupiah(item.harga)}</td>
+                        <td class="p-2.5"><span class="bg-slate-900 border border-slate-700 px-2 py-0.5 rounded text-amber-400 font-bold">${item.stok}</span></td>
+                        <td class="p-2.5 text-center">
+                            <button onclick="hapusDatabaseItem(${index})" class="bg-rose-600/80 hover:bg-rose-500 text-white px-2 py-1 rounded text-[10px]">Hapus</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function tambahDatabaseBarang(e) {
+            e.preventDefault();
+            const barcode = document.getElementById('db-barcode').value || ("AUTO-" + Date.now());
+            const nama = document.getElementById('db-nama').value;
+            const harga = parseFloat(document.getElementById('db-harga').value);
+            const stok = parseInt(document.getElementById('db-stok').value);
+            const fileInput = document.getElementById('db-foto');
+
+            const prosesSimpan = (fotoUrl) => {
+                masterDatabase.push({
+                    id: barcode,
+                    nama: nama,
+                    harga: harga,
+                    stok: stok,
+                    foto: fotoUrl
+                });
+
+                document.getElementById('db-barcode').value = '';
+                document.getElementById('db-nama').value = '';
+                document.getElementById('db-harga').value = '';
+                document.getElementById('db-stok').value = '';
+                fileInput.value = '';
+
+                updateUI();
+                alert("Barang berhasil ditambahkan ke database!");
+            };
+
+            if (fileInput.files && fileInput.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    prosesSimpan(e.target.result);
+                };
+                reader.readAsDataURL(fileInput.files[0]);
+            } else {
+                prosesSimpan(null);
+            }
+        }
+
+        function hapusDatabaseItem(index) {
+            if (confirm(`Hapus ${masterDatabase[index].nama} dari database?`)) {
+                masterDatabase.splice(index, 1);
+                updateUI();
+            }
+        }
+
+        function mulaiScannerDB() {
+            if (!html5QrCodeDB) {
+                html5QrCodeDB = new Html5Qrcode("reader-db");
+            }
+            html5QrCodeDB.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 200, height: 150 } },
+                (decodedText) => {
+                    document.getElementById('db-barcode').value = decodedText;
+                    stopScannerDB();
+                },
+                (errorMessage) => {}
+            ).catch(err => {
+                alert("Kamera tidak ditemukan atau ditolak.");
+            });
+        }
+
+        function stopScannerDB() {
+            if (html5QrCodeDB && html5QrCodeDB.isScanning) {
+                html5QrCodeDB.stop().then(() => {
+                    document.getElementById('reader-db').innerText = "";
+                });
+            }
+        }
+
+        // Inisialisasi awal UI
+        updateUI();
     </script>
 </body>
 </html>
