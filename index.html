@@ -153,6 +153,14 @@
 
                     <section class="bg-slate-800 rounded-xl p-4 border border-slate-700 shadow-lg">
                         <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider">📸 Produk Cepat (Tap Foto)</h3>
+                            <span class="text-[10px] text-slate-500">Khusus barang tanpa barcode</span>
+                        </div>
+                        <div id="produk-cepat-list" class="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-56 overflow-y-auto pr-1"></div>
+                    </section>
+
+                    <section class="bg-slate-800 rounded-xl p-4 border border-slate-700 shadow-lg">
+                        <div class="flex justify-between items-center mb-3">
                             <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider">Daftar Transaksi</h3>
                             <button onclick="kosongkanKeranjang()" class="text-xs text-rose-400 hover:underline">Kosongkan</button>
                         </div>
@@ -521,6 +529,7 @@
             renderDatabaseTable();
             renderStokCards();
             renderLaporan();
+            renderProdukCepat();
 
             simpanData();
         }
@@ -692,6 +701,31 @@
 
             const namaFile = `Laporan_Penjualan_${profilToko.nama.replace(/\s+/g, '_')}_${filterAktif.toUpperCase()}_${Date.now()}.xlsx`;
             XLSX.writeFile(workbook, namaFile);
+        }
+
+        function renderProdukCepat() {
+            const container = document.getElementById('produk-cepat-list');
+            if (!container) return;
+            container.innerHTML = "";
+
+            // Barang tanpa/dengan barcode yang punya foto ditampilkan di sini
+            // supaya kasir tinggal tap foto, tidak perlu ke tab Database.
+            const produkFoto = masterDatabase.filter(p => p.foto);
+
+            if (produkFoto.length === 0) {
+                container.innerHTML = `<p class="col-span-full text-[10px] text-slate-500 text-center py-4">Belum ada produk dengan foto. Tambahkan lewat menu Database Produk.</p>`;
+                return;
+            }
+
+            produkFoto.forEach(item => {
+                container.innerHTML += `
+                    <button type="button" onclick="cariAtauTambahKeKasir('${item.id}')" class="bg-slate-900 border border-slate-700 hover:border-emerald-500 rounded-lg p-1.5 flex flex-col items-center text-center transition">
+                        <img src="${item.foto}" class="w-full aspect-square object-cover rounded mb-1">
+                        <p class="text-[10px] font-semibold text-slate-200 truncate w-full">${item.nama}</p>
+                        <p class="text-[10px] text-emerald-400 font-bold">${formatRupiah(item.harga)}</p>
+                    </button>
+                `;
+            });
         }
 
         function renderDatabaseTable() {
@@ -904,6 +938,13 @@
                     qty: item.qty,
                     harga: item.harga
                 });
+
+                // Kurangi stok otomatis untuk barang yang berasal dari master
+                // database (barang dari Input Manual tidak tercatat di stok).
+                const produk = masterDatabase.find(p => p.id === item.id);
+                if (produk) {
+                    produk.stok = Math.max(0, produk.stok - item.qty);
+                }
             });
 
             const waktuSekarang = new Date();
@@ -916,7 +957,7 @@
                 total: totalTransaksi
             });
 
-            alert(`Transaksi ${idTrx} Berhasil Disimpan!`);
+            alert(`Transaksi ${idTrx} Berhasil Disimpan!\nStok barang otomatis diperbarui.`);
             kosongkanKeranjang();
         }
 
