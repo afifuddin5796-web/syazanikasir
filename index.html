@@ -173,6 +173,17 @@
                                 <span class="text-slate-400">Total Belanja:</span>
                                 <span id="total-harga" class="font-bold text-base text-emerald-400">Rp 0</span>
                             </div>
+
+                            <div>
+                                <label class="text-[11px] text-slate-400 mb-1 block">Uang Dibayar (Tunai)</label>
+                                <input type="number" id="input-bayar" placeholder="Masukkan nominal uang" oninput="hitungKembalian()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500">
+                            </div>
+
+                            <div class="flex justify-between text-sm">
+                                <span class="text-slate-400">Kembalian:</span>
+                                <span id="kembalian-text" class="font-bold text-base text-amber-400">Rp 0</span>
+                            </div>
+
                             <button onclick="selesaikanTransaksi()" class="w-full bg-emerald-600 hover:bg-emerald-500 font-bold py-2.5 rounded-lg text-sm transition shadow-lg shadow-emerald-950">
                                 Selesaikan Transaksi
                             </button>
@@ -199,6 +210,17 @@
                             <div class="border-t border-dashed border-slate-400 pt-1 flex justify-between font-bold text-xs">
                                 <span>TOTAL:</span>
                                 <span id="struk-total">Rp 0</span>
+                            </div>
+
+                            <div id="struk-bayar-kembali" class="hidden space-y-1 text-[10px]">
+                                <div class="flex justify-between">
+                                    <span>Bayar:</span>
+                                    <span id="struk-bayar">Rp 0</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span>Kembali:</span>
+                                    <span id="struk-kembali">Rp 0</span>
+                                </div>
                             </div>
 
                             <p class="text-center text-[9px] text-slate-500 pt-2 border-t border-slate-200">
@@ -478,6 +500,8 @@
             return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} - ${pad(d.getHours())}:${pad(d.getMinutes())} WIB`;
         }
 
+        let totalBelanjaSaatIni = 0;
+
         function updateUI() {
             document.getElementById('display-nama-kasir').innerText = profilToko.kasir;
             document.getElementById('struk-nama-toko').innerText = profilToko.nama;
@@ -526,6 +550,8 @@
             document.getElementById('total-harga').innerText = formatRupiah(total);
             document.getElementById('struk-total').innerText = formatRupiah(total);
             document.getElementById('struk-waktu').innerText = formatWaktuLengkap(new Date());
+            totalBelanjaSaatIni = total;
+            hitungKembalian();
 
             renderDatabaseTable();
             renderStokCards();
@@ -963,14 +989,50 @@
             updateUI();
         }
 
+        function hitungKembalian() {
+            const bayarInput = document.getElementById('input-bayar');
+            const strukBlock = document.getElementById('struk-bayar-kembali');
+            if (!bayarInput) return;
+
+            const bayar = parseFloat(bayarInput.value) || 0;
+            const kembali = bayar - totalBelanjaSaatIni;
+            const kembalianEl = document.getElementById('kembalian-text');
+
+            if (bayar <= 0) {
+                kembalianEl.innerText = formatRupiah(0);
+                kembalianEl.className = "font-bold text-base text-amber-400";
+                strukBlock.classList.add('hidden');
+                return;
+            }
+
+            if (kembali < 0) {
+                kembalianEl.innerText = "Kurang " + formatRupiah(Math.abs(kembali));
+                kembalianEl.className = "font-bold text-base text-rose-400";
+            } else {
+                kembalianEl.innerText = formatRupiah(kembali);
+                kembalianEl.className = "font-bold text-base text-amber-400";
+            }
+
+            strukBlock.classList.remove('hidden');
+            document.getElementById('struk-bayar').innerText = formatRupiah(bayar);
+            document.getElementById('struk-kembali').innerText = formatRupiah(Math.max(0, kembali));
+        }
+
         function kosongkanKeranjang() {
             keranjang = [];
+            document.getElementById('input-bayar').value = "";
             updateUI();
         }
 
         function selesaikanTransaksi() {
             if(keranjang.length === 0) return alert("Keranjang belanja masih kosong!");
-            
+
+            const bayar = parseFloat(document.getElementById('input-bayar').value) || 0;
+            if (bayar <= 0) return alert("Masukkan jumlah uang yang dibayarkan konsumen terlebih dahulu!");
+            if (bayar < totalBelanjaSaatIni) return alert("Uang yang dibayarkan kurang dari total belanja!");
+
+            const kembalian = bayar - totalBelanjaSaatIni;
+
             let totalTransaksi = 0;
             let itemsDetail = [];
 
@@ -997,10 +1059,12 @@
                 id: idTrx,
                 waktu: waktuSekarang,
                 items: itemsDetail,
-                total: totalTransaksi
+                total: totalTransaksi,
+                bayar: bayar,
+                kembalian: kembalian
             });
 
-            alert(`Transaksi ${idTrx} Berhasil Disimpan!\nStok barang otomatis diperbarui.`);
+            alert(`Transaksi ${idTrx} Berhasil Disimpan!\nBayar: ${formatRupiah(bayar)}\nKembalian: ${formatRupiah(kembalian)}\nStok barang otomatis diperbarui.`);
             kosongkanKeranjang();
         }
 
