@@ -14,7 +14,7 @@
 </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SyazaniKasir - Offline Pro</title>
+    <title>SembakoKasir - Offline Pro</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- html2canvas -->
@@ -49,7 +49,7 @@
         <div>
             <div class="p-4 border-b border-slate-700 flex items-center justify-between">
                 <h1 class="text-lg font-bold text-emerald-400 flex items-center gap-2">
-                    🛒 SyazaniKasir
+                    🛒 SembakoKasir
                 </h1>
                 <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/30">v1.7</span>
             </div>
@@ -443,7 +443,7 @@
            Tanpa ini, semua data (produk, stok, riwayat transaksi, pengaturan
            toko) hanya hidup di memori browser dan HILANG setiap aplikasi
            ditutup/direfresh. Fungsi ini menyimpannya ke disk perangkat. */
-        const STORAGE_KEY = 'SyazaniKasirData_v1';
+        const STORAGE_KEY = 'sembakoKasirData_v1';
 
         function simpanData() {
             const state = { profilToko, masterDatabase, keranjang, riwayatTransaksi };
@@ -718,11 +718,13 @@
             }
 
             produkFoto.forEach(item => {
+                const habis = item.stok <= 0;
                 container.innerHTML += `
-                    <button type="button" onclick="cariAtauTambahKeKasir('${item.id}')" class="bg-slate-900 border border-slate-700 hover:border-emerald-500 rounded-lg p-1.5 flex flex-col items-center text-center transition">
+                    <button type="button" onclick="${habis ? '' : `cariAtauTambahKeKasir('${item.id}')`}" ${habis ? 'disabled' : ''} class="relative bg-slate-900 border border-slate-700 rounded-lg p-1.5 flex flex-col items-center text-center transition ${habis ? 'opacity-40 cursor-not-allowed' : 'hover:border-emerald-500'}">
                         <img src="${item.foto}" class="w-full aspect-square object-cover rounded mb-1">
                         <p class="text-[10px] font-semibold text-slate-200 truncate w-full">${item.nama}</p>
                         <p class="text-[10px] text-emerald-400 font-bold">${formatRupiah(item.harga)}</p>
+                        ${habis ? '<span class="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-rose-400 bg-slate-950/60 rounded-lg">STOK HABIS</span>' : ''}
                     </button>
                 `;
             });
@@ -736,6 +738,10 @@
                 const imgTag = item.foto 
                     ? `<img src="${item.foto}" class="w-8 h-8 object-cover rounded border border-slate-700">`
                     : `<span class="text-[10px] bg-slate-700 px-1.5 py-0.5 rounded text-slate-400">No Img</span>`;
+                const habis = item.stok <= 0;
+                const tombolKasir = habis
+                    ? `<button disabled class="text-xs bg-slate-700/40 text-slate-500 border border-slate-700 px-2 py-1 rounded cursor-not-allowed mr-1">Stok Habis</button>`
+                    : `<button onclick="panggilKeKasir('${item.id}')" class="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-1 rounded hover:bg-emerald-600 hover:text-white transition mr-1">+ Kasir</button>`;
 
                 tbody.innerHTML += `
                     <tr class="hover:bg-slate-700/30">
@@ -745,7 +751,7 @@
                         <td class="p-2.5">${formatRupiah(item.harga)}</td>
                         <td class="p-2.5"><span class="bg-slate-700 px-2 py-0.5 rounded text-amber-300 font-bold">${item.stok}</span></td>
                         <td class="p-2.5 text-center">
-                            <button onclick="panggilKeKasir('${item.id}')" class="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-1 rounded hover:bg-emerald-600 hover:text-white transition mr-1">+ Kasir</button>
+                            ${tombolKasir}
                             <button onclick="hapusDatabaseItem(${idx})" class="text-xs bg-rose-500/20 text-rose-400 border border-rose-500/30 px-2 py-1 rounded hover:bg-rose-500 hover:text-white transition">Hapus</button>
                         </td>
                     </tr>
@@ -827,18 +833,34 @@
 
         function cariAtauTambahKeKasir(kode) {
             const produk = masterDatabase.find(p => p.id === kode);
-            if (produk) {
-                keranjang.push({
-                    id: produk.id,
-                    nama: produk.nama,
-                    harga: produk.harga,
-                    qty: 1,
-                    info: `Kode: ${produk.id}`
-                });
-                updateUI();
-            } else {
+            if (!produk) {
                 alert(`Kode "${kode}" tidak ditemukan!`);
+                return;
             }
+
+            // Jumlahkan qty produk yang sama yang sudah ada di keranjang, supaya
+            // scan/tap berulang tidak menembus sisa stok yang sebenarnya.
+            const qtyDiKeranjang = keranjang
+                .filter(item => item.id === produk.id)
+                .reduce((total, item) => total + item.qty, 0);
+
+            if (produk.stok <= 0) {
+                alert(`Stok "${produk.nama}" habis, tidak bisa ditambahkan ke keranjang!`);
+                return;
+            }
+            if (qtyDiKeranjang + 1 > produk.stok) {
+                alert(`Stok "${produk.nama}" tidak mencukupi! Sisa stok: ${produk.stok}, sudah ${qtyDiKeranjang} di keranjang.`);
+                return;
+            }
+
+            keranjang.push({
+                id: produk.id,
+                nama: produk.nama,
+                harga: produk.harga,
+                qty: 1,
+                info: `Kode: ${produk.id}`
+            });
+            updateUI();
         }
 
         function tambahDatabaseBarang(e) {
