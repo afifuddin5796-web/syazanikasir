@@ -765,15 +765,21 @@
 
             masterDatabase.forEach((item, idx) => {
                 stokContainer.innerHTML += `
-                    <div class="bg-slate-900 p-3 rounded-lg border border-slate-700 flex justify-between items-center">
-                        <div>
-                            <p class="text-xs font-bold text-slate-200">${item.nama}</p>
-                            <p class="text-[10px] text-slate-400">Stok: <span class="text-amber-400 font-bold">${item.stok}</span></p>
+                    <div class="bg-slate-900 p-3 rounded-lg border border-slate-700 space-y-2">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <p class="text-xs font-bold text-slate-200">${item.nama}</p>
+                                <p class="text-[10px] text-slate-400">Stok saat ini: <span class="text-amber-400 font-bold">${item.stok}</span></p>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <button onclick="ubahStok(${idx}, -1)" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-1 rounded border border-slate-600 font-bold">-</button>
+                                <button onclick="ubahStok(${idx}, 1)" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-1 rounded border border-slate-600 font-bold">+</button>
+                            </div>
                         </div>
-                        <div class="flex items-center gap-1">
-                            <button onclick="ubahStok(${idx}, -1)" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-1 rounded border border-slate-600 font-bold">-</button>
-                            <button onclick="ubahStok(${idx}, 1)" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-1 rounded border border-slate-600 font-bold">+</button>
-                        </div>
+                        <form onsubmit="setStokManual(event, ${idx})" class="flex gap-2">
+                            <input id="stok-manual-${idx}" type="number" min="0" value="${item.stok}" class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
+                            <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shrink-0">Set Stok</button>
+                        </form>
                     </div>
                 `;
             });
@@ -916,6 +922,20 @@
                 masterDatabase[index].stok += delta;
                 updateUI();
             }
+        }
+
+        function setStokManual(e, index) {
+            e.preventDefault();
+            const input = document.getElementById(`stok-manual-${index}`);
+            const nilaiBaru = parseInt(input.value);
+
+            if (isNaN(nilaiBaru) || nilaiBaru < 0) {
+                alert('Masukkan angka stok yang valid (0 atau lebih)!');
+                return;
+            }
+
+            masterDatabase[index].stok = nilaiBaru;
+            updateUI();
         }
 
         function tambahItemManual(e) {
