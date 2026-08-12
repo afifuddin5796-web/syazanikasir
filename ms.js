@@ -1,85 +1,17 @@
 /* ==========================================================================
-   SyazaniKasir - Application Logic
-   Data disimpan permanen di IndexedDB (bukan variabel sementara),
-   sehingga produk & riwayat penjualan TIDAK hilang saat aplikasi ditutup.
+   SyazaniKasir - Application Logic (Versi localForage + Photo Compressor)
+   Data disimpan permanen menggunakan localForage (IndexedDB Wrapper),
+   sehingga foto produk & riwayat penjualan TIDAK hilang saat aplikasi ditutup.
    ========================================================================== */
 
-const DB_NAME = 'SyazaniKasirDB';
-const DB_VERSION = 1;
-let db = null;
+// Konfigurasi Database localForage
+localforage.config({
+  name: 'SyazaniKasirDB',
+  storeName: 'syazani_store'
+});
+
 let cart = []; // { productId, name, price, qty }
-
-/* ---------------------------- IndexedDB Setup ---------------------------- */
-
-function openDB() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-    request.onupgradeneeded = (event) => {
-      const _db = event.target.result;
-
-      if (!_db.objectStoreNames.contains('products')) {
-        const productStore = _db.createObjectStore('products', { keyPath: 'id', autoIncrement: true });
-        productStore.createIndex('barcode', 'barcode', { unique: false });
-        productStore.createIndex('name', 'name', { unique: false });
-      }
-
-      if (!_db.objectStoreNames.contains('sales')) {
-        _db.createObjectStore('sales', { keyPath: 'id', autoIncrement: true });
-      }
-    };
-
-    request.onsuccess = (event) => {
-      db = event.target.result;
-      resolve(db);
-    };
-
-    request.onerror = (event) => {
-      console.error('Gagal membuka database', event.target.error);
-      reject(event.target.error);
-    };
-  });
-}
-
-function dbGetAll(storeName) {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readonly');
-    const store = tx.objectStore(storeName);
-    const req = store.getAll();
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-function dbAdd(storeName, value) {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readwrite');
-    const store = tx.objectStore(storeName);
-    const req = store.add(value);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-function dbPut(storeName, value) {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readwrite');
-    const store = tx.objectStore(storeName);
-    const req = store.put(value);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-function dbDelete(storeName, id) {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readwrite');
-    const store = tx.objectStore(storeName);
-    const req = store.delete(id);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
-}
+let productsCache = [];
 
 /* ------------------------------ Formatting ------------------------------- */
 
@@ -87,17 +19,59 @@ function formatRupiah(num) {
   return 'Rp ' + Number(num || 0).toLocaleString('id-ID');
 }
 
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str ?? '';
+  return div.innerHTML;
+}
+
+/* --------------------------- Photo Compressor --------------------------- */
+
+// Mengompres foto produk agar ringan & tidak menghabiskan kuota penyimpanan Android
+function compressImage(fileInput) {
+  return new Promise((resolve) => {
+    const file = fileInput.files[0];
+    if (!file) return resolve('');
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.src = e.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxWidth = 300; // Lebar maksimal 300px (Sangat cukup untuk thumbnail kasir)
+        const scale = maxWidth / img.width;
+
+        canvas.width = maxWidth;
+        canvas.height = img.height * scale;
+
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        // Kompresi ke JPEG dengan kualitas 70%
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+      img.onerror = () => resolve('');
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 /* ------------------------------- Products -------------------------------- */
 
-let productsCache = [];
-
 async function loadProducts() {
-  productsCache = await dbGetAll('products');
-  renderProductList();
+  try {
+    productsCache = (await localforage.getItem('products')) || [];
+    renderProductList();
+  } catch (err) {
+    console.error('Gagal memuat produk dari localForage:', err);
+    productsCache = [];
+  }
 }
 
 function renderProductList() {
   const container = document.getElementById('productList');
+  if (!container) return;
   container.innerHTML = '';
 
   if (productsCache.length === 0) {
@@ -108,8 +82,15 @@ function renderProductList() {
   productsCache.forEach((p) => {
     const card = document.createElement('div');
     card.className = 'bg-slate-900 border border-slate-700 rounded-lg p-3 flex flex-col justify-between hover:border-amber-500 cursor-pointer transition';
+    
+    // Tampilkan gambar jika ada
+    const imageTag = p.photo 
+      ? `<img src="${p.photo}" class="w-full h-24 object-cover rounded mb-2" alt="${escapeHtml(p.name)}">` 
+      : '';
+
     card.innerHTML = `
       <div>
+        ${imageTag}
         <p class="text-sm font-semibold text-white truncate">${escapeHtml(p.name)}</p>
         <p class="text-xs text-slate-500 truncate">${escapeHtml(p.barcode || '-')}</p>
       </div>
@@ -123,15 +104,16 @@ function renderProductList() {
   });
 }
 
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
-}
-
 async function saveNewProduct(productData) {
-  await dbAdd('products', productData);
-  await loadProducts();
+  try {
+    productData.id = Date.now(); // Unique ID berdasarkan timestamp
+    productsCache.push(productData);
+    await localforage.setItem('products', productsCache);
+    await loadProducts();
+  } catch (err) {
+    console.error('Gagal menyimpan produk baru:', err);
+    alert('Terjadi kesalahan saat menyimpan produk.');
+  }
 }
 
 async function findProductByBarcode(barcode) {
@@ -171,6 +153,7 @@ function cartTotal() {
 
 function renderCart() {
   const container = document.getElementById('cartItems');
+  if (!container) return;
   container.innerHTML = '';
 
   if (cart.length === 0) {
@@ -206,8 +189,10 @@ function renderCart() {
   }
 
   const total = cartTotal();
-  document.getElementById('subtotalText').textContent = formatRupiah(total);
-  document.getElementById('totalText').textContent = formatRupiah(total);
+  const subtotalEl = document.getElementById('subtotalText');
+  const totalEl = document.getElementById('totalText');
+  if (subtotalEl) subtotalEl.textContent = formatRupiah(total);
+  if (totalEl) totalEl.textContent = formatRupiah(total);
 }
 
 async function checkout() {
@@ -217,26 +202,35 @@ async function checkout() {
   }
 
   const sale = {
+    id: Date.now(),
     date: new Date().toISOString(),
     items: cart.map((i) => ({ productId: i.productId, name: i.name, price: i.price, qty: i.qty })),
     total: cartTotal()
   };
 
-  await dbAdd('sales', sale);
+  try {
+    // Simpan data transaksi ke localForage
+    let salesHistory = (await localforage.getItem('sales')) || [];
+    salesHistory.push(sale);
+    await localforage.setItem('sales', salesHistory);
 
-  // Kurangi stok produk yang terjual
-  for (const item of cart) {
-    const product = productsCache.find((p) => p.id === item.productId);
-    if (product) {
-      product.stock = Math.max(0, (product.stock ?? 0) - item.qty);
-      await dbPut('products', product);
+    // Kurangi stok produk yang terjual
+    for (const item of cart) {
+      const product = productsCache.find((p) => p.id === item.productId);
+      if (product) {
+        product.stock = Math.max(0, (product.stock ?? 0) - item.qty);
+      }
     }
-  }
+    await localforage.setItem('products', productsCache);
 
-  await loadProducts();
-  cart = [];
-  renderCart();
-  alert('Transaksi berhasil disimpan!\nTotal: ' + formatRupiah(sale.total));
+    await loadProducts();
+    cart = [];
+    renderCart();
+    alert('Transaksi berhasil disimpan!\nTotal: ' + formatRupiah(sale.total));
+  } catch (err) {
+    console.error('Gagal memproses transaksi:', err);
+    alert('Gagal memproses transaksi.');
+  }
 }
 
 /* ------------------------------- Add Product Modal ------------------------------- */
@@ -247,25 +241,36 @@ function setupAddProductModal() {
   const closeBtn = document.getElementById('closeAddProductModal');
   const form = document.getElementById('addProductForm');
 
+  if (!openBtn || !modal || !form) return;
+
   openBtn.addEventListener('click', () => modal.classList.remove('hidden'));
-  closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
+  if (closeBtn) closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
   modal.addEventListener('click', (e) => {
     if (e.target === modal) modal.classList.add('hidden');
   });
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const name = document.getElementById('productNameInput').value.trim();
-    const price = Number(document.getElementById('productPriceInput').value);
-    const stock = Number(document.getElementById('productStockInput').value) || 0;
-    const barcode = document.getElementById('productBarcodeInput').value.trim();
+    const name = document.getElementById('productNameInput')?.value.trim();
+    const price = Number(document.getElementById('productPriceInput')?.value);
+    const stock = Number(document.getElementById('productStockInput')?.value) || 0;
+    const barcode = document.getElementById('productBarcodeInput')?.value.trim();
+    
+    // Ambil elemen input foto jika ada
+    const photoInput = document.getElementById('productPhotoInput') || document.querySelector('input[type="file"]');
 
     if (!name || !price) {
       alert('Nama dan harga produk wajib diisi.');
       return;
     }
 
-    await saveNewProduct({ name, price, stock, barcode });
+    // Kompres foto secara otomatis sebelum disimpan
+    let photoBase64 = '';
+    if (photoInput && photoInput.files.length > 0) {
+      photoBase64 = await compressImage(photoInput);
+    }
+
+    await saveNewProduct({ name, price, stock, barcode, photo: photoBase64 });
     form.reset();
     modal.classList.add('hidden');
   });
@@ -275,6 +280,8 @@ function setupAddProductModal() {
 
 function setupBarcodeInput() {
   const input = document.getElementById('barcodeInput');
+  if (!input) return;
+
   input.addEventListener('keydown', async (e) => {
     if (e.key !== 'Enter') return;
     const value = input.value.trim();
@@ -304,6 +311,8 @@ function setupCameraScanner() {
   const scanBtn = document.getElementById('startScanBtn');
   const readerDiv = document.getElementById('reader');
 
+  if (!scanBtn || !readerDiv) return;
+
   scanBtn.addEventListener('click', async () => {
     if (scanning) {
       await stopScanner();
@@ -319,8 +328,11 @@ function setupCameraScanner() {
         { facingMode: 'environment' },
         { fps: 10, qrbox: 220 },
         (decodedText) => {
-          document.getElementById('barcodeInput').value = decodedText;
-          document.getElementById('barcodeInput').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+          const barcodeInput = document.getElementById('barcodeInput');
+          if (barcodeInput) {
+            barcodeInput.value = decodedText;
+            barcodeInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+          }
           stopScanner();
         },
         () => { /* ignore per-frame scan failures */ }
@@ -335,6 +347,7 @@ function setupCameraScanner() {
 }
 
 async function stopScanner() {
+  const readerDiv = document.getElementById('reader');
   if (html5QrCode && scanning) {
     try {
       await html5QrCode.stop();
@@ -344,13 +357,12 @@ async function stopScanner() {
     }
   }
   scanning = false;
-  document.getElementById('reader').classList.add('hidden');
+  if (readerDiv) readerDiv.classList.add('hidden');
 }
 
 /* ------------------------------------ Init ------------------------------------ */
 
 document.addEventListener('DOMContentLoaded', async () => {
-  await openDB();
   await loadProducts();
   renderCart();
 
@@ -358,5 +370,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupBarcodeInput();
   setupCameraScanner();
 
-  document.getElementById('checkoutBtn').addEventListener('click', checkout);
+  const checkoutBtn = document.getElementById('checkoutBtn');
+  if (checkoutBtn) {
+    checkoutBtn.addEventListener('click', checkout);
+  }
 });
