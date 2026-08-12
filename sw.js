@@ -3,9 +3,10 @@ const urlsToCache = [
   './',
   './index.html',
   './manifest.json',
-  './ms.js',
+  './localforage.min.js',
   'https://cdn.tailwindcss.com',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
+  'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
   'https://unpkg.com/html5-qrcode',
   'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
 ];
