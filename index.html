@@ -165,9 +165,10 @@
 
                     <section class="bg-slate-800 rounded-xl p-4 border border-slate-700 shadow-lg">
                         <div class="flex justify-between items-center mb-3">
-                            <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider">📸 Produk Cepat (Tap Foto)</h3>
-                            <span class="text-[10px] text-slate-500">Khusus barang tanpa barcode</span>
+                            <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider">📸 Produk Tanpa Barcode</h3>
+                            <span class="text-[10px] text-slate-500">Cari nama atau tap foto</span>
                         </div>
+                        <input type="text" id="cari-produk-tanpa-barcode" oninput="renderProdukCepat()" placeholder="🔍 Ketik nama produk untuk mencari..." class="w-full mb-3 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
                         <div id="produk-cepat-list" class="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-56 overflow-y-auto pr-1"></div>
                     </section>
 
@@ -919,23 +920,42 @@
 
         function renderProdukCepat() {
             const container = document.getElementById('produk-cepat-list');
+            const inputCari = document.getElementById('cari-produk-tanpa-barcode');
             if (!container) return;
             container.innerHTML = "";
 
-            // Barang tanpa/dengan barcode yang punya foto ditampilkan di sini
-            // supaya kasir tinggal tap foto, tidak perlu ke tab Database.
-            const produkFoto = masterDatabase.filter(p => p.foto);
+            // Produk "tanpa barcode asli" = kode otomatis berawalan "UMKM-"
+            // (dibuat sistem saat kolom barcode dikosongkan waktu input barang).
+            const produkTanpaBarcode = masterDatabase.filter(p => p.id.startsWith('UMKM-'));
+            const kataKunci = inputCari ? inputCari.value.trim().toLowerCase() : '';
 
-            if (produkFoto.length === 0) {
-                container.innerHTML = `<p class="col-span-full text-[10px] text-slate-500 text-center py-4">Belum ada produk dengan foto. Tambahkan lewat menu Database Produk.</p>`;
+            let daftarTampil;
+            if (kataKunci) {
+                // Mode pencarian: cocokkan nama produk, tampilkan SEMUA yang
+                // cocok walau tidak punya foto — penting untuk toko dengan
+                // banyak produk tanpa barcode yang sulit diingat satu-satu.
+                daftarTampil = produkTanpaBarcode.filter(p => p.nama.toLowerCase().includes(kataKunci));
+            } else {
+                // Tanpa kata kunci: tampilan default seperti semula, cuma
+                // yang ada foto (biar kasir tinggal tap foto).
+                daftarTampil = produkTanpaBarcode.filter(p => p.foto);
+            }
+
+            if (daftarTampil.length === 0) {
+                container.innerHTML = kataKunci
+                    ? `<p class="col-span-full text-[10px] text-slate-500 text-center py-4">Tidak ada produk tanpa barcode dengan nama "${kataKunci}".</p>`
+                    : `<p class="col-span-full text-[10px] text-slate-500 text-center py-4">Belum ada produk dengan foto. Cari nama produk di kolom pencarian, atau tambahkan foto lewat menu Database Produk.</p>`;
                 return;
             }
 
-            produkFoto.forEach(item => {
+            daftarTampil.forEach(item => {
                 const habis = item.stok <= 0;
+                const gambarTag = item.foto
+                    ? `<img src="${item.foto}" class="w-full aspect-square object-cover rounded mb-1">`
+                    : `<div class="w-full aspect-square bg-slate-800 rounded mb-1 flex items-center justify-center text-lg">📦</div>`;
                 container.innerHTML += `
                     <button type="button" onclick="${habis ? '' : `cariAtauTambahKeKasir('${item.id}')`}" ${habis ? 'disabled' : ''} class="relative bg-slate-900 border border-slate-700 rounded-lg p-1.5 flex flex-col items-center text-center transition ${habis ? 'opacity-40 cursor-not-allowed' : 'hover:border-emerald-500'}">
-                        <img src="${item.foto}" class="w-full aspect-square object-cover rounded mb-1">
+                        ${gambarTag}
                         <p class="text-[10px] font-semibold text-slate-200 truncate w-full">${item.nama}</p>
                         <p class="text-[10px] text-emerald-400 font-bold">${formatRupiah(item.harga)}</p>
                         ${habis ? '<span class="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-rose-400 bg-slate-950/60 rounded-lg">STOK HABIS</span>' : ''}
@@ -999,13 +1019,38 @@
             });
         }
 
+        // Format barcode yang umum dipakai kemasan produk retail/warung
+        // (EAN-13/EAN-8/UPC untuk barcode garis-garis, CODE_128/CODE_39
+        // untuk beberapa produk industri, QR_CODE untuk jaga-jaga).
+        // Membatasi format ini membuat pembacaan LEBIH AKURAT & LEBIH CEPAT
+        // dibanding membiarkan library menebak semua format sekaligus.
+        function formatBarcodeUmum() {
+            if (typeof Html5QrcodeSupportedFormats === 'undefined') return undefined;
+            return [
+                Html5QrcodeSupportedFormats.EAN_13,
+                Html5QrcodeSupportedFormats.EAN_8,
+                Html5QrcodeSupportedFormats.UPC_A,
+                Html5QrcodeSupportedFormats.UPC_E,
+                Html5QrcodeSupportedFormats.CODE_128,
+                Html5QrcodeSupportedFormats.CODE_39,
+                Html5QrcodeSupportedFormats.QR_CODE
+            ];
+        }
+
         function mulaiScannerKasir() {
             if (!html5QrCodeKasir) {
                 html5QrCodeKasir = new Html5Qrcode("reader");
             }
             html5QrCodeKasir.start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 200, height: 140 } },
+                { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+                {
+                    fps: 10,
+                    // Kotak scan dibuat MELEBAR (landscape), bukan persegi —
+                    // barcode 1D (garis-garis) lebih mudah terbaca penuh
+                    // dalam bidang pandang yang lebar daripada tinggi.
+                    qrbox: { width: 280, height: 120 },
+                    formatsToSupport: formatBarcodeUmum()
+                },
                 (decodedText) => {
                     cariAtauTambahKeKasir(decodedText);
                     stopScanner();
@@ -1027,8 +1072,12 @@
                 html5QrCodeDB = new Html5Qrcode("reader-db");
             }
             html5QrCodeDB.start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 180, height: 120 } },
+                { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+                {
+                    fps: 10,
+                    qrbox: { width: 260, height: 110 },
+                    formatsToSupport: formatBarcodeUmum()
+                },
                 (decodedText) => {
                     document.getElementById('db-barcode').value = decodedText;
                     stopScannerDB();
