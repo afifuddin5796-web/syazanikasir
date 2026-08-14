@@ -1,4 +1,4 @@
-const CACHE_NAME = 'syazanikasir-cache-v1';
+const CACHE_NAME = 'syazanikasir-cache-v2';
 const urlsToCache = [
   './',
   './index.html',
