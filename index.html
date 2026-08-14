@@ -165,10 +165,11 @@
 
                     <section class="bg-slate-800 rounded-xl p-4 border border-slate-700 shadow-lg">
                         <div class="flex justify-between items-center mb-3">
-                            <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider">📸 Produk Tanpa Barcode</h3>
+                            <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider">🔍 Cari &amp; Tambah Produk</h3>
                             <span class="text-[10px] text-slate-500">Cari nama atau tap foto</span>
                         </div>
-                        <input type="text" id="cari-produk-tanpa-barcode" oninput="renderProdukCepat()" placeholder="🔍 Ketik nama produk untuk mencari..." class="w-full mb-3 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
+                        <input type="text" id="cari-produk-tanpa-barcode" oninput="renderProdukCepat()" placeholder="🔍 Cari produk apa saja (punya barcode atau tidak)..." class="w-full mb-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
+                        <p class="text-[10px] text-slate-500 mb-2">💡 Kalau kamera bermasalah, cari produk lewat nama di sini tetap bisa menambahkannya ke keranjang.</p>
                         <div id="produk-cepat-list" class="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-56 overflow-y-auto pr-1"></div>
                     </section>
 
@@ -959,26 +960,26 @@
             if (!container) return;
             container.innerHTML = "";
 
-            // Produk "tanpa barcode asli" = kode otomatis berawalan "UMKM-"
-            // (dibuat sistem saat kolom barcode dikosongkan waktu input barang).
-            const produkTanpaBarcode = masterDatabase.filter(p => p.id.startsWith('UMKM-'));
             const kataKunci = inputCari ? inputCari.value.trim().toLowerCase() : '';
 
             let daftarTampil;
             if (kataKunci) {
-                // Mode pencarian: cocokkan nama produk, tampilkan SEMUA yang
-                // cocok walau tidak punya foto — penting untuk toko dengan
-                // banyak produk tanpa barcode yang sulit diingat satu-satu.
-                daftarTampil = produkTanpaBarcode.filter(p => p.nama.toLowerCase().includes(kataKunci));
+                // Pencarian UNIVERSAL: mencakup SEMUA produk, baik yang punya
+                // barcode asli maupun tidak. Ini penting sebagai cadangan —
+                // kalau kamera sedang bermasalah/tidak bisa scan, kasir tetap
+                // bisa menemukan & menambahkan produk apa saja lewat nama.
+                daftarTampil = masterDatabase.filter(p =>
+                    p.nama.toLowerCase().includes(kataKunci) || p.id.toLowerCase().includes(kataKunci)
+                );
             } else {
                 // Tanpa kata kunci: tampilan default seperti semula, cuma
-                // yang ada foto (biar kasir tinggal tap foto).
-                daftarTampil = produkTanpaBarcode.filter(p => p.foto);
+                // produk yang ada foto (biar kasir tinggal tap foto cepat).
+                daftarTampil = masterDatabase.filter(p => p.foto);
             }
 
             if (daftarTampil.length === 0) {
                 container.innerHTML = kataKunci
-                    ? `<p class="col-span-full text-[10px] text-slate-500 text-center py-4">Tidak ada produk tanpa barcode dengan nama "${kataKunci}".</p>`
+                    ? `<p class="col-span-full text-[10px] text-slate-500 text-center py-4">Tidak ada produk dengan nama/kode "${kataKunci}".</p>`
                     : `<p class="col-span-full text-[10px] text-slate-500 text-center py-4">Belum ada produk dengan foto. Cari nama produk di kolom pencarian, atau tambahkan foto lewat menu Database Produk.</p>`;
                 return;
             }
@@ -1134,6 +1135,52 @@
             ];
         }
 
+        // Terjemahkan error kamera jadi pesan yang jelas & arahkan solusi ke
+        // TEMPAT YANG BENAR. Untuk web app (PWA), izin kamera diatur oleh
+        // CHROME per-situs, BUKAN oleh menu Pengaturan HP > Aplikasi — jadi
+        // pesan ini menuntun pengguna ke tempat yang tepat.
+        function pesanErrorKamera(err) {
+            const nama = err && err.name;
+            if (nama === 'NotAllowedError' || nama === 'PermissionDeniedError') {
+                return '⚠️ Akses kamera DIBLOKIR untuk situs ini.\n\n'
+                    + 'Cara mengaktifkan lagi (WAJIB lewat Chrome, bukan Pengaturan HP):\n'
+                    + '1. Ketuk ikon 🔒/ⓘ di sebelah kiri alamat situs (di address bar Chrome)\n'
+                    + '2. Ketuk "Izin" (Permissions)\n'
+                    + '3. Cari "Kamera", ubah jadi "Izinkan"\n'
+                    + '4. Muat ulang halaman, lalu coba scan lagi\n\n'
+                    + 'Catatan: mengecek lewat Pengaturan HP > Aplikasi TIDAK akan menampilkan izin ini, karena aplikasi web mengatur izin kamera lewat Chrome, bukan sistem Android.';
+            }
+            if (nama === 'NotFoundError' || nama === 'DevicesNotFoundError') {
+                return '⚠️ Kamera tidak ditemukan di perangkat ini.';
+            }
+            if (nama === 'NotReadableError' || nama === 'TrackStartError') {
+                return '⚠️ Kamera sedang dipakai aplikasi lain (video call, aplikasi kamera, dll). Tutup aplikasi tersebut lalu coba lagi.';
+            }
+            return '⚠️ Tidak bisa membuka kamera' + (err && err.message ? (': ' + err.message) : '') + '.\n\nPastikan situs dibuka lewat https:// dan tidak ada aplikasi lain yang sedang memakai kamera.';
+        }
+
+        // Bunyi "beep" singkat saat barcode berhasil discan — dibuat langsung
+        // oleh browser (Web Audio API), tidak perlu file suara terpisah,
+        // jadi tetap ringan dan tidak butuh internet.
+        function mainkanBeepScan() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                if (ctx.state === 'suspended') ctx.resume();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = 1000;
+                gain.gain.value = 0.2;
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.12);
+                osc.onended = () => ctx.close();
+            } catch (err) {
+                console.warn('Tidak bisa memutar suara beep', err);
+            }
+        }
+
         function mulaiScannerKasir() {
             if (!html5QrCodeKasir) {
                 html5QrCodeKasir = new Html5Qrcode("reader");
@@ -1149,11 +1196,12 @@
                     formatsToSupport: formatBarcodeUmum()
                 },
                 (decodedText) => {
+                    mainkanBeepScan();
                     cariAtauTambahKeKasir(decodedText);
                     stopScanner();
                 },
                 (err) => {}
-            ).catch(err => alert("Kamera tidak diizinkan atau tidak ditemukan!"));
+            ).catch(err => alert(pesanErrorKamera(err)));
         }
 
         function stopScanner() {
@@ -1176,12 +1224,13 @@
                     formatsToSupport: formatBarcodeUmum()
                 },
                 (decodedText) => {
+                    mainkanBeepScan();
                     document.getElementById('db-barcode').value = decodedText;
                     stopScannerDB();
                     alert("Kode Barcode Terbaca: " + decodedText);
                 },
                 (err) => {}
-            ).catch(err => alert("Gagal membuka kamera!"));
+            ).catch(err => alert(pesanErrorKamera(err)));
         }
 
         function stopScannerDB() {
