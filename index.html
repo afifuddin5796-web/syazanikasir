@@ -16,16 +16,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Syazani Kasir - Offline Pro</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- html2canvas -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <!-- HTML5 Barcode & QR Scanner Library -->
-    <script src="https://unpkg.com/html5-qrcode"></script>
-    <!-- SheetJS (Library Excel Export) -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <!-- localForage (penyimpanan data lokal berkapasitas besar, pengganti localStorage) -->
-    <script src="https://unpkg.com/localforage/dist/localforage.min.js"></script>
+    <!-- Tailwind CSS (dibundel lokal, sudah di-compile, tidak butuh internet) -->
+    <link rel="stylesheet" href="vendor/tailwind.min.css">
+    <!-- html2canvas (lokal) -->
+    <script src="vendor/html2canvas.min.js"></script>
+    <!-- HTML5 Barcode & QR Scanner Library (lokal) -->
+    <script src="vendor/html5-qrcode.min.js"></script>
+    <!-- SheetJS (Library Excel Export) (lokal) -->
+    <script src="vendor/xlsx.full.min.js"></script>
+    <!-- localForage (penyimpanan data lokal berkapasitas besar, pengganti localStorage) (lokal) -->
+    <script src="vendor/localforage.min.js"></script>
     <style>
         @media print {
             body * { visibility: hidden; }
@@ -549,7 +549,7 @@
         let masterDatabase = [
             { id: "899100110201", nama: "Minyak Goreng 1L", harga: 16500, stok: 24, foto: null },
             { id: "089686010018", nama: "Indomie Goreng Original", harga: 3100, stok: 120, foto: null },
-            { id: "UMKM-KERIPIK", nama: "Keripik Tempe UMKM Pasuruan", harga: 12000, stok: 15, foto: "https://via.placeholder.com/40" },
+            { id: "UMKM-KERIPIK", nama: "Keripik Tempe UMKM Pasuruan", harga: 12000, stok: 15, foto: null },
             { id: "MANUAL-01", nama: "Beras Premium (Kiloan)", harga: 14000, stok: 100, foto: null }
         ];
 
