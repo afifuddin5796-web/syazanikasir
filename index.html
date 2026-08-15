@@ -26,6 +26,14 @@
     <script src="vendor/xlsx.full.min.js"></script>
     <!-- localForage (penyimpanan data lokal berkapasitas besar, pengganti localStorage) (lokal) -->
     <script src="vendor/localforage.min.js"></script>
+    <script>
+      window.addEventListener('error', function(e) {
+        alert('❌ GLOBAL ERROR TERTANGKAP:\n\n' + e.message + '\n\nFile: ' + e.filename + '\nBaris: ' + e.lineno);
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        alert('❌ PROMISE ERROR TERTANGKAP:\n\n' + (e.reason && e.reason.message ? e.reason.message : e.reason));
+      });
+    </script>
     <style>
         @media print {
             body * { visibility: hidden; }
@@ -537,6 +545,7 @@
 
     <!-- LOGIKA JAVASCRIPT -->
     <script>
+      try {
         let html5QrCodeKasir = null;
         let html5QrCodeDB = null;
 
@@ -1687,6 +1696,10 @@
         muatData().then(() => {
             updateUI();
         });
+      } catch (fatalErr) {
+        alert('❌ FATAL ERROR — skrip aplikasi berhenti!\n\nPesan: ' + fatalErr.message + '\n\nStack:\n' + (fatalErr.stack || '(tidak ada stack)'));
+        console.error('FATAL ERROR saat inisialisasi aplikasi:', fatalErr);
+      }
     </script>
 </body>
 </html>
