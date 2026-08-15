@@ -1,4 +1,4 @@
-const CACHE_NAME = 'syazanikasir-cache-v6';
+const CACHE_NAME = 'syazanikasir-cache-v3';
 const urlsToCache = [
   './',
   './index.html',
@@ -20,22 +20,14 @@ const urlsToCache = [
   './icon-512x512.png'
 ];
 
-// Install: cache tiap file SATU-SATU (bukan addAll), supaya kalau satu file
-// gagal diambil (koneksi lambat/putus saat instalasi), file-file lain tetap
-// berhasil disimpan. addAll() lama bersifat "semua-atau-tidak-sama-sekali":
-// satu kegagalan bikin SEMUA file gagal ke-cache tanpa ada peringatan jelas,
-// dan itulah penyebab database produk sempat hilang saat offline.
+// Install: cache the app shell. Semua aset di atas sekarang file lokal
+// (bukan CDN luar), jadi addAll tidak akan gagal gara-gara koneksi internet.
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return Promise.allSettled(
-        urlsToCache.map((url) =>
-          cache.add(url).catch((err) => {
-            console.error('Gagal cache:', url, err);
-          })
-        )
-      );
-    }).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(urlsToCache))
+      .then(() => self.skipWaiting())
+      .catch((err) => console.error('SW install gagal cache aset:', err))
   );
 });
 
@@ -53,6 +45,8 @@ self.addEventListener('activate', (event) => {
 });
 
 // Fetch: cache-first untuk semua aset app shell -> aplikasi tetap jalan tanpa internet.
+// Untuk permintaan navigasi (buka halaman), kalau tidak ada di cache & offline,
+// tetap kembalikan index.html supaya app shell selalu muncul (bukan pesan "offline" browser).
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
