@@ -26,6 +26,14 @@
     <script src="vendor/xlsx.full.min.js"></script>
     <!-- localForage (penyimpanan data lokal berkapasitas besar, pengganti localStorage) (lokal) -->
     <script src="vendor/localforage.min.js"></script>
+    <script>
+      window.addEventListener('error', function(e) {
+        alert('❌ GLOBAL ERROR TERTANGKAP:\n\n' + e.message + '\n\nFile: ' + e.filename + '\nBaris: ' + e.lineno);
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        alert('❌ PROMISE ERROR TERTANGKAP:\n\n' + (e.reason && e.reason.message ? e.reason.message : e.reason));
+      });
+    </script>
     <style>
         @media print {
             body * { visibility: hidden; }
@@ -537,6 +545,7 @@
 
     <!-- LOGIKA JAVASCRIPT -->
     <script>
+      try {
         let html5QrCodeKasir = null;
         let html5QrCodeDB = null;
 
@@ -578,6 +587,11 @@
         const STORAGE_KEY = 'sembakoKasirData_v1';
         let localStoragePenuh = false;
 
+        if (typeof localforage === 'undefined') {
+            alert('⚠️ Gagal memuat komponen penyimpanan data (localForage).\n\nCoba sambungkan internet sebentar lalu buka ulang aplikasi ini satu kali supaya file pendukung tersimpan sempurna di HP. Setelah itu aplikasi bisa dipakai offline seperti biasa.');
+            throw new Error('localforage gagal dimuat - inisialisasi dihentikan');
+        }
+
         localforage.config({
             name: 'SyazaniKasir',
             storeName: 'kasir_data'
@@ -618,24 +632,31 @@
                 .then((state) => {
                     if (state) {
                         terapkanState(state);
+                        alert('DEBUG: Data ditemukan di penyimpanan (IndexedDB).\nJumlah produk: ' + (Array.isArray(state.masterDatabase) ? state.masterDatabase.length : 'field masterDatabase tidak ada') + '\nKey storage: ' + STORAGE_KEY);
                         return;
                     }
 
                     try {
                         const raw = localStorage.getItem(STORAGE_KEY);
-                        if (!raw) return;
+                        if (!raw) {
+                            alert('DEBUG: Tidak ada data sama sekali di IndexedDB maupun localStorage untuk key "' + STORAGE_KEY + '".\nDriver aktif: ' + (typeof localforage.driver === 'function' ? localforage.driver() : 'tidak diketahui'));
+                            return;
+                        }
                         const stateLama = JSON.parse(raw);
                         terapkanState(stateLama);
+                        alert('DEBUG: Data ditemukan di localStorage (data lama), sedang dipindah ke IndexedDB.\nJumlah produk: ' + (Array.isArray(stateLama.masterDatabase) ? stateLama.masterDatabase.length : 'field masterDatabase tidak ada'));
                         return localforage.setItem(STORAGE_KEY, stateLama).then(() => {
                             localStorage.removeItem(STORAGE_KEY);
                             console.log('Data lama berhasil dipindahkan dari localStorage ke localForage.');
                         });
                     } catch (err) {
                         console.error('Gagal memigrasikan data lama', err);
+                        alert('DEBUG: Error saat migrasi data lama: ' + err.message);
                     }
                 })
                 .catch((err) => {
                     console.error('Gagal memuat data tersimpan, memakai data default', err);
+                    alert('DEBUG: Error saat mengambil data dari IndexedDB: ' + err.message);
                 });
         }
 
@@ -1675,6 +1696,10 @@
         muatData().then(() => {
             updateUI();
         });
+      } catch (fatalErr) {
+        alert('❌ FATAL ERROR — skrip aplikasi berhenti!\n\nPesan: ' + fatalErr.message + '\n\nStack:\n' + (fatalErr.stack || '(tidak ada stack)'));
+        console.error('FATAL ERROR saat inisialisasi aplikasi:', fatalErr);
+      }
     </script>
 </body>
 </html>
