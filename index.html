@@ -482,6 +482,20 @@
                     <button type="button" onclick="tutupModalPengaturan()" class="bg-slate-700 text-slate-300 py-2 px-3 rounded-lg">Batal</button>
                 </div>
             </form>
+
+            <div class="pt-3 border-t border-slate-700 space-y-2">
+                <p class="text-[11px] font-semibold text-slate-300">💾 Backup & Pulihkan Database</p>
+                <div class="flex gap-2">
+                    <button type="button" onclick="eksporBackupJSON()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-semibold py-2 rounded-lg border border-slate-600 transition">
+                        ⬇️ Backup
+                    </button>
+                    <button type="button" onclick="pilihFileImport()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-semibold py-2 rounded-lg border border-slate-600 transition">
+                        ⬆️ Import
+                    </button>
+                </div>
+                <input type="file" id="input-file-import" accept="application/json" class="hidden" onchange="importBackupJSON(event)">
+                <p class="text-[10px] text-slate-500 leading-relaxed">File backup (.json) bisa dipindah & dibuka di HP/PC lain yang memakai aplikasi ini. Data juga otomatis tersimpan setiap ada perubahan, ditambah backup harian di dalam perangkat sebagai jaring pengaman.</p>
+            </div>
         </div>
     </div>
 
@@ -632,32 +646,118 @@
                 .then((state) => {
                     if (state) {
                         terapkanState(state);
-                        alert('DEBUG: Data ditemukan di penyimpanan (IndexedDB).\nJumlah produk: ' + (Array.isArray(state.masterDatabase) ? state.masterDatabase.length : 'field masterDatabase tidak ada') + '\nKey storage: ' + STORAGE_KEY);
+                        console.log('Data dimuat dari IndexedDB. Jumlah produk:', Array.isArray(state.masterDatabase) ? state.masterDatabase.length : 0);
                         return;
                     }
 
                     try {
                         const raw = localStorage.getItem(STORAGE_KEY);
                         if (!raw) {
-                            alert('DEBUG: Tidak ada data sama sekali di IndexedDB maupun localStorage untuk key "' + STORAGE_KEY + '".\nDriver aktif: ' + (typeof localforage.driver === 'function' ? localforage.driver() : 'tidak diketahui'));
+                            console.log('Tidak ada data tersimpan sebelumnya, memakai data default.');
                             return;
                         }
                         const stateLama = JSON.parse(raw);
                         terapkanState(stateLama);
-                        alert('DEBUG: Data ditemukan di localStorage (data lama), sedang dipindah ke IndexedDB.\nJumlah produk: ' + (Array.isArray(stateLama.masterDatabase) ? stateLama.masterDatabase.length : 'field masterDatabase tidak ada'));
+                        console.log('Data lama ditemukan di localStorage, dipindahkan ke IndexedDB. Jumlah produk:', Array.isArray(stateLama.masterDatabase) ? stateLama.masterDatabase.length : 0);
                         return localforage.setItem(STORAGE_KEY, stateLama).then(() => {
                             localStorage.removeItem(STORAGE_KEY);
                             console.log('Data lama berhasil dipindahkan dari localStorage ke localForage.');
                         });
                     } catch (err) {
                         console.error('Gagal memigrasikan data lama', err);
-                        alert('DEBUG: Error saat migrasi data lama: ' + err.message);
+                        alert('⚠️ Gagal memigrasikan data lama: ' + err.message);
                     }
                 })
                 .catch((err) => {
                     console.error('Gagal memuat data tersimpan, memakai data default', err);
-                    alert('DEBUG: Error saat mengambil data dari IndexedDB: ' + err.message);
+                    alert('⚠️ Gagal memuat data tersimpan: ' + err.message + '\n\nAplikasi akan memakai data default.');
                 });
+        }
+
+        // Backup harian otomatis (silent) — menyimpan snapshot database ke IndexedDB
+        // setiap kali tanggal berganti, disimpan terpisah dari data utama sebagai jaring
+        // pengaman jika data utama rusak/hilang. Menyimpan maksimal 7 snapshot terakhir.
+        function backupHarianOtomatis() {
+            const hariIni = new Date().toISOString().slice(0, 10); // format YYYY-MM-DD
+            return localforage.getItem('lastAutoBackupDate').then((tanggalTerakhir) => {
+                if (tanggalTerakhir === hariIni) return; // sudah backup hari ini, tidak perlu ulang
+
+                const snapshot = { profilToko, masterDatabase, riwayatTransaksi, pesananPending, tanggal: hariIni };
+                return localforage.setItem('autoBackup_' + hariIni, snapshot)
+                    .then(() => localforage.setItem('lastAutoBackupDate', hariIni))
+                    .then(() => localforage.keys())
+                    .then((keys) => {
+                        const kunciSnapshot = keys.filter(k => k.startsWith('autoBackup_')).sort();
+                        const kelebihan = kunciSnapshot.length - 7;
+                        if (kelebihan > 0) {
+                            return Promise.all(kunciSnapshot.slice(0, kelebihan).map(k => localforage.removeItem(k)));
+                        }
+                    })
+                    .then(() => console.log('Backup harian otomatis tersimpan untuk tanggal', hariIni))
+                    .catch((err) => console.error('Gagal membuat backup harian otomatis', err));
+            });
+        }
+
+        // Backup manual — export seluruh database ke file .json yang bisa dipindah/dibuka
+        // di HP atau PC lain yang memakai aplikasi ini (lewat tombol Import).
+        function eksporBackupJSON() {
+            const state = {
+                _meta: { app: 'SyazaniKasir', versi: 1, dibuat: new Date().toISOString() },
+                profilToko, masterDatabase, riwayatTransaksi, pesananPending
+            };
+            const namaToko = (profilToko.nama || 'Toko').replace(/[^a-zA-Z0-9]+/g, '-');
+            const tanggal = new Date().toISOString().slice(0, 10);
+
+            const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.download = `Backup-${namaToko}-${tanggal}.json`;
+            link.href = url;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function pilihFileImport() {
+            document.getElementById('input-file-import').click();
+        }
+
+        // Import — membaca file .json hasil export dan mengganti data yang ada sekarang.
+        function importBackupJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const state = JSON.parse(e.target.result);
+                    if (!state || !Array.isArray(state.masterDatabase)) {
+                        alert('❌ File tidak valid. Pastikan file yang dipilih adalah hasil Backup Database dari aplikasi ini (.json).');
+                        return;
+                    }
+
+                    const jumlahProduk = state.masterDatabase.length;
+                    const dibuat = state._meta && state._meta.dibuat ? new Date(state._meta.dibuat).toLocaleString('id-ID') : 'tidak diketahui';
+                    const konfirmasi = confirm(
+                        '⚠️ IMPORT DATA BACKUP\n\n' +
+                        'File ini berisi ' + jumlahProduk + ' produk.\n' +
+                        'Dibuat pada: ' + dibuat + '\n\n' +
+                        'Semua data yang ada di aplikasi SEKARANG akan DIGANTI dengan data dari file ini.\n' +
+                        'Data saat ini akan hilang jika belum di-backup.\n\nLanjutkan import?'
+                    );
+                    if (!konfirmasi) return;
+
+                    terapkanState(state);
+                    updateUI().then(() => {
+                        alert('✅ Data berhasil di-import dan disimpan ke perangkat ini!');
+                    });
+                } catch (err) {
+                    console.error('Gagal import backup', err);
+                    alert('❌ Gagal membaca file backup: ' + err.message);
+                } finally {
+                    event.target.value = '';
+                }
+            };
+            reader.readAsText(file);
         }
 
         function formatRupiah(angka) {
@@ -1693,8 +1793,22 @@
             window.open(`https://wa.me/?text=${encodeURIComponent(pesan)}`, '_blank');
         }
 
+        // PENTING: fungsi `async` yang dideklarasikan di dalam blok (try{...}) TIDAK otomatis
+        // menjadi variabel global di browser, walaupun fungsi biasa (non-async) bisa.
+        // Ini sebabnya tombol dengan onclick="..." untuk fungsi async gagal dengan error
+        // "X is not defined" — HTML memanggil dari scope global, tapi fungsinya cuma ada
+        // di scope try-block. Fix: daftarkan eksplisit ke objek window di sini.
+        window.mulaiScannerKasir = mulaiScannerKasir;
+        window.stopScanner = stopScanner;
+        window.mulaiScannerDB = mulaiScannerDB;
+        window.stopScannerDB = stopScannerDB;
+        window.eksporBackupJSON = eksporBackupJSON;
+        window.pilihFileImport = pilihFileImport;
+        window.importBackupJSON = importBackupJSON;
+
         muatData().then(() => {
             updateUI();
+            backupHarianOtomatis();
         });
       } catch (fatalErr) {
         alert('❌ FATAL ERROR — skrip aplikasi berhenti!\n\nPesan: ' + fatalErr.message + '\n\nStack:\n' + (fatalErr.stack || '(tidak ada stack)'));
