@@ -1080,6 +1080,130 @@
             ctx.closePath();
         }
 
+        function angkaGridBagus(maxVal) {
+            if (maxVal <= 0) return 1;
+            const kasar = maxVal / 4;
+            const magnitude = Math.pow(10, Math.floor(Math.log10(kasar)));
+            const langkah = [1, 2, 2.5, 5, 10].map(m => m * magnitude).find(l => l >= kasar) || magnitude * 10;
+            return langkah * 4;
+        }
+
+        function gambarLineChart(canvasId, data, opsi = {}) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            const cssW = canvas.parentElement.clientWidth;
+            const cssH = opsi.height || 200;
+
+            canvas.style.width = cssW + 'px';
+            canvas.style.height = cssH + 'px';
+            canvas.width = Math.max(1, Math.round(cssW * dpr));
+            canvas.height = Math.max(1, Math.round(cssH * dpr));
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, cssW, cssH);
+
+            if (!data || data.length === 0) {
+                ctx.fillStyle = '#64748b';
+                ctx.font = '11px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('Belum ada data pada periode/status ini', cssW / 2, cssH / 2);
+                return;
+            }
+
+            const warnaGaris = opsi.warna || '#34d399';
+            const labelYW = 48;
+            const padding = { top: 14, right: 14, bottom: 22, left: labelYW };
+            const areaW = Math.max(20, cssW - padding.left - padding.right);
+            const areaH = Math.max(20, cssH - padding.top - padding.bottom);
+
+            const rawMax = Math.max(...data.map(d => d.total), 0);
+            const maxVal = angkaGridBagus(rawMax || 1);
+
+            // Grid horizontal putus-putus + label sumbu Y
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.15)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 4]);
+            ctx.fillStyle = '#64748b';
+            ctx.font = '9px sans-serif';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            for (let i = 0; i <= 4; i++) {
+                const nilai = maxVal * (1 - i / 4);
+                const y = padding.top + (areaH * i) / 4;
+                ctx.beginPath();
+                ctx.moveTo(padding.left, y);
+                ctx.lineTo(padding.left + areaW, y);
+                ctx.stroke();
+                ctx.fillText(formatRupiahSingkat(Math.round(nilai)), padding.left - 8, y);
+            }
+            ctx.setLineDash([]);
+
+            const n = data.length;
+            const titik = data.map((d, i) => {
+                const x = n === 1 ? padding.left + areaW / 2 : padding.left + (areaW * i) / (n - 1);
+                const y = padding.top + areaH - (Math.min(d.total, maxVal) / maxVal) * areaH;
+                return { x, y, d };
+            });
+
+            function jalurHalus() {
+                ctx.beginPath();
+                ctx.moveTo(titik[0].x, titik[0].y);
+                for (let i = 0; i < titik.length - 1; i++) {
+                    const p0 = titik[i];
+                    const p1 = titik[i + 1];
+                    const cx = (p0.x + p1.x) / 2;
+                    ctx.bezierCurveTo(cx, p0.y, cx, p1.y, p1.x, p1.y);
+                }
+            }
+
+            // Area gradasi di bawah garis
+            if (titik.length > 1) {
+                jalurHalus();
+                ctx.lineTo(titik[titik.length - 1].x, padding.top + areaH);
+                ctx.lineTo(titik[0].x, padding.top + areaH);
+                ctx.closePath();
+                const gradArea = ctx.createLinearGradient(0, padding.top, 0, padding.top + areaH);
+                gradArea.addColorStop(0, 'rgba(52, 211, 153, 0.35)');
+                gradArea.addColorStop(1, 'rgba(52, 211, 153, 0)');
+                ctx.fillStyle = gradArea;
+                ctx.fill();
+
+                // Garis utama
+                jalurHalus();
+                ctx.strokeStyle = warnaGaris;
+                ctx.lineWidth = 2.5;
+                ctx.lineJoin = 'round';
+                ctx.lineCap = 'round';
+                ctx.stroke();
+            }
+
+            // Titik-titik data
+            titik.forEach(t => {
+                ctx.beginPath();
+                ctx.arc(t.x, t.y, 3.5, 0, Math.PI * 2);
+                ctx.fillStyle = '#0f172a';
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = warnaGaris;
+                ctx.stroke();
+            });
+
+            // Label sumbu X (lewati beberapa label kalau titik terlalu banyak)
+            const maxLabel = Math.max(4, Math.floor(areaW / 42));
+            const lompat = Math.max(1, Math.ceil(n / maxLabel));
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '9px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'alphabetic';
+            titik.forEach((t, i) => {
+                if (i % lompat === 0 || i === titik.length - 1) {
+                    ctx.fillText(t.d.label, t.x, cssH - 6);
+                }
+            });
+        }
+
         function gambarBarChart(canvasId, data, opsi = {}) {
             const canvas = document.getElementById(canvasId);
             if (!canvas) return;
@@ -1192,7 +1316,7 @@
             if (elPeriode) elPeriode.innerText = filterAktif.toUpperCase();
 
             const tren = agregasiTrenHarian(dataFilteredSaatIni);
-            gambarBarChart('chart-tren', tren, { warna: '#059669', warna2: '#34d399', height: 200 });
+            gambarLineChart('chart-tren', tren, { warna: '#34d399', height: 200 });
 
             const topProduk = agregasiTopProduk(dataFilteredSaatIni);
             gambarBarChart('chart-top-produk', topProduk, {
