@@ -317,6 +317,11 @@
                                 <button onclick="filterStatus('belum')" id="filter-status-belum" class="px-3 py-1.5 text-xs font-semibold rounded-md text-slate-300 hover:bg-slate-700">⏳ Belum Lunas</button>
                             </div>
 
+                            <div class="flex gap-1 bg-slate-900 p-1 rounded-lg border border-slate-700">
+                                <button onclick="setModeLaporan('tabel')" id="mode-tabel" class="px-3 py-1.5 text-xs font-semibold rounded-md bg-emerald-600 text-white shadow">📋 Tabel</button>
+                                <button onclick="setModeLaporan('grafik')" id="mode-grafik" class="px-3 py-1.5 text-xs font-semibold rounded-md text-slate-300 hover:bg-slate-700">📈 Grafik</button>
+                            </div>
+
                             <button onclick="eksporKeExcel()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3 py-2 rounded-lg shadow-md flex items-center gap-1.5 transition">
                                 📊 Ekspor Excel
                             </button>
@@ -340,37 +345,68 @@
                         <p class="text-[10px] text-slate-500 mt-2">💡 Untuk pesanan lewat WA yang belum dibayar (diambil &amp; dibayar nanti), pilih status <span class="text-rose-300 font-semibold">Belum Lunas</span> — nanti tandai Lunas setelah pembeli membayar.</p>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-700">
-                            <p class="text-xs text-slate-400">Total Pemasukan Lunas (<span id="periode-label">SEMUA</span>)</p>
-                            <p id="total-pemasukan" class="text-2xl font-bold text-emerald-400 mt-1">Rp 0</p>
+                    <div id="laporan-tabel-view" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="bg-slate-900 p-4 rounded-xl border border-slate-700">
+                                <p class="text-xs text-slate-400">Total Pemasukan Lunas (<span id="periode-label">SEMUA</span>)</p>
+                                <p id="total-pemasukan" class="text-2xl font-bold text-emerald-400 mt-1">Rp 0</p>
+                            </div>
+                            <div class="bg-slate-900 p-4 rounded-xl border border-rose-700/50">
+                                <p class="text-xs text-slate-400">Belum Dibayar (Piutang)</p>
+                                <p id="total-belum-lunas" class="text-2xl font-bold text-rose-400 mt-1">Rp 0</p>
+                                <p id="total-belum-lunas-count" class="text-[10px] text-slate-500 mt-0.5">0 Pesanan</p>
+                            </div>
+                            <div class="bg-slate-900 p-4 rounded-xl border border-slate-700">
+                                <p class="text-xs text-slate-400">Total Transaksi (Tampil)</p>
+                                <p id="total-transaksi-count" class="text-2xl font-bold text-amber-400 mt-1">0 Transaksi</p>
+                            </div>
                         </div>
-                        <div class="bg-slate-900 p-4 rounded-xl border border-rose-700/50">
-                            <p class="text-xs text-slate-400">Belum Dibayar (Piutang)</p>
-                            <p id="total-belum-lunas" class="text-2xl font-bold text-rose-400 mt-1">Rp 0</p>
-                            <p id="total-belum-lunas-count" class="text-[10px] text-slate-500 mt-0.5">0 Pesanan</p>
-                        </div>
-                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-700">
-                            <p class="text-xs text-slate-400">Total Transaksi (Tampil)</p>
-                            <p id="total-transaksi-count" class="text-2xl font-bold text-amber-400 mt-1">0 Transaksi</p>
+
+                        <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3">📜 RIWAYAT TRANSAKSI TER-REKAP</h4>
+                        <div class="overflow-x-auto rounded-lg border border-slate-700">
+                            <table class="w-full text-left text-xs text-slate-300 border-collapse">
+                                <thead>
+                                    <tr class="bg-slate-900 text-slate-400 border-b border-slate-700">
+                                        <th class="p-3">ID / No. Struk</th>
+                                        <th class="p-3">Tanggal & Waktu</th>
+                                        <th class="p-3">Item Belanja</th>
+                                        <th class="p-3 text-right">Total Transaksi</th>
+                                        <th class="p-3 text-center">Status</th>
+                                        <th class="p-3 text-center w-52">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="riwayat-transaksi-body" class="divide-y divide-slate-700/50"></tbody>
+                            </table>
                         </div>
                     </div>
 
-                    <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3">📜 RIWAYAT TRANSAKSI TER-REKAP</h4>
-                    <div class="overflow-x-auto rounded-lg border border-slate-700">
-                        <table class="w-full text-left text-xs text-slate-300 border-collapse">
-                            <thead>
-                                <tr class="bg-slate-900 text-slate-400 border-b border-slate-700">
-                                    <th class="p-3">ID / No. Struk</th>
-                                    <th class="p-3">Tanggal & Waktu</th>
-                                    <th class="p-3">Item Belanja</th>
-                                    <th class="p-3 text-right">Total Transaksi</th>
-                                    <th class="p-3 text-center">Status</th>
-                                    <th class="p-3 text-center w-52">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody id="riwayat-transaksi-body" class="divide-y divide-slate-700/50"></tbody>
-                        </table>
+                    <div id="laporan-grafik-view" class="hidden space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="bg-slate-900 p-4 rounded-xl border border-slate-700">
+                                <p class="text-xs text-slate-400">Total Omzet Lunas (<span id="grafik-periode-label">SEMUA</span>)</p>
+                                <p id="grafik-total-omzet" class="text-2xl font-bold text-emerald-400 mt-1">Rp 0</p>
+                            </div>
+                            <div class="bg-slate-900 p-4 rounded-xl border border-slate-700">
+                                <p class="text-xs text-slate-400">Rata-rata / Transaksi</p>
+                                <p id="grafik-rata-rata" class="text-2xl font-bold text-amber-400 mt-1">Rp 0</p>
+                            </div>
+                            <div class="bg-slate-900 p-4 rounded-xl border border-slate-700">
+                                <p class="text-xs text-slate-400">Jumlah Transaksi Lunas</p>
+                                <p id="grafik-jumlah-transaksi" class="text-2xl font-bold text-slate-200 mt-1">0 Transaksi</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-700">
+                            <h4 class="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">📈 Tren Penjualan Harian</h4>
+                            <p class="text-[10px] text-slate-500 mb-2">Omzet transaksi lunas per hari, sesuai filter periode/status di atas.</p>
+                            <canvas id="chart-tren" class="w-full block"></canvas>
+                        </div>
+
+                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-700">
+                            <h4 class="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">🏆 Produk Terlaris (berdasarkan omzet)</h4>
+                            <p class="text-[10px] text-slate-500 mb-2">6 produk dengan kontribusi omzet tertinggi pada periode terpilih.</p>
+                            <canvas id="chart-top-produk" class="w-full block"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -593,6 +629,7 @@
         let filterAktif = 'semua';
         let filterStatusAktif = 'semua';
         let dataFilteredSaatIni = [];
+        let modeLaporanAktif = 'tabel';
 
         // Daftar pesanan yang sudah dicatat tapi belum dibayar/diambil
         let pesananPending = [];
@@ -764,6 +801,12 @@
             return "Rp " + angka.toLocaleString('id-ID');
         }
 
+        function formatRupiahSingkat(angka) {
+            if (angka >= 1000000) return 'Rp' + (angka / 1000000).toFixed(1).replace('.0', '') + 'jt';
+            if (angka >= 1000) return 'Rp' + Math.round(angka / 1000) + 'rb';
+            return 'Rp' + angka;
+        }
+
         function formatWaktuLengkap(d) {
             const pad = (n) => n < 10 ? '0' + n : n;
             return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} - ${pad(d.getHours())}:${pad(d.getMinutes())} WIB`;
@@ -880,6 +923,24 @@
             renderLaporan();
         }
 
+        function setModeLaporan(mode) {
+            modeLaporanAktif = mode;
+            const tabelView = document.getElementById('laporan-tabel-view');
+            const grafikView = document.getElementById('laporan-grafik-view');
+            if (tabelView) tabelView.classList.toggle('hidden', mode !== 'tabel');
+            if (grafikView) grafikView.classList.toggle('hidden', mode !== 'grafik');
+
+            ['tabel', 'grafik'].forEach(m => {
+                const btn = document.getElementById(`mode-${m}`);
+                if (!btn) return;
+                btn.className = m === mode
+                    ? "px-3 py-1.5 text-xs font-semibold rounded-md bg-emerald-600 text-white shadow"
+                    : "px-3 py-1.5 text-xs font-semibold rounded-md text-slate-300 hover:bg-slate-700";
+            });
+
+            if (mode === 'grafik') renderGrafikLaporan();
+        }
+
         function renderLaporan() {
             const tbody = document.getElementById('riwayat-transaksi-body');
             tbody.innerHTML = "";
@@ -962,7 +1023,191 @@
             const belumLunasCountEl = document.getElementById('total-belum-lunas-count');
             if (belumLunasCard) belumLunasCard.innerText = formatRupiah(totalBelumLunas);
             if (belumLunasCountEl) belumLunasCountEl.innerText = `${countBelumLunas} Pesanan`;
+
+            if (modeLaporanAktif === 'grafik') renderGrafikLaporan();
         }
+
+        // ===================== GRAFIK LAPORAN (Canvas, tanpa library eksternal) =====================
+
+        function agregasiTrenHarian(transaksi) {
+            const lunas = transaksi.filter(t => (t.status || 'lunas') === 'lunas');
+            const map = new Map();
+            lunas.forEach(t => {
+                const d = new Date(t.waktu);
+                const key = d.toISOString().slice(0, 10);
+                if (!map.has(key)) map.set(key, { label: `${d.getDate()}/${d.getMonth()+1}`, total: 0, tanggal: d });
+                map.get(key).total += t.total;
+            });
+            return Array.from(map.values()).sort((a, b) => a.tanggal - b.tanggal);
+        }
+
+        function agregasiTopProduk(transaksi, maxItem = 6) {
+            const lunas = transaksi.filter(t => (t.status || 'lunas') === 'lunas');
+            const map = new Map();
+            lunas.forEach(t => {
+                (t.items || []).forEach(it => {
+                    const nilai = (it.qty || 1) * (it.harga || 0);
+                    map.set(it.nama, (map.get(it.nama) || 0) + nilai);
+                });
+            });
+            return Array.from(map.entries())
+                .map(([label, total]) => ({ label, total }))
+                .sort((a, b) => b.total - a.total)
+                .slice(0, maxItem);
+        }
+
+        function gambarRoundRectAtas(ctx, x, y, w, h, r) {
+            r = Math.min(r, w / 2, Math.max(h, 0.01));
+            ctx.beginPath();
+            ctx.moveTo(x, y + h);
+            ctx.lineTo(x, y + r);
+            ctx.arcTo(x, y, x + r, y, r);
+            ctx.lineTo(x + w - r, y);
+            ctx.arcTo(x + w, y, x + w, y + r, r);
+            ctx.lineTo(x + w, y + h);
+            ctx.closePath();
+        }
+
+        function gambarRoundRectKanan(ctx, x, y, w, h, r) {
+            r = Math.min(r, h / 2, Math.max(w, 0.01));
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + w - r, y);
+            ctx.arcTo(x + w, y, x + w, y + r, r);
+            ctx.lineTo(x + w, y + h - r);
+            ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+            ctx.lineTo(x, y + h);
+            ctx.closePath();
+        }
+
+        function gambarBarChart(canvasId, data, opsi = {}) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            const cssW = canvas.parentElement.clientWidth;
+            const cssH = opsi.height || 200;
+
+            canvas.style.width = cssW + 'px';
+            canvas.style.height = cssH + 'px';
+            canvas.width = Math.max(1, Math.round(cssW * dpr));
+            canvas.height = Math.max(1, Math.round(cssH * dpr));
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, cssW, cssH);
+
+            if (!data || data.length === 0) {
+                ctx.fillStyle = '#64748b';
+                ctx.font = '11px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('Belum ada data pada periode/status ini', cssW / 2, cssH / 2);
+                return;
+            }
+
+            const horizontal = !!opsi.horizontal;
+            const warnaAtas = opsi.warna2 || '#34d399';
+            const warnaBawah = opsi.warna || '#059669';
+            const maxVal = Math.max(...data.map(d => d.total), 1);
+
+            if (horizontal) {
+                const padding = { top: 10, right: 12, bottom: 10, left: 8 };
+                const labelW = 96;
+                const valueW = 56;
+                const areaW = Math.max(20, cssW - padding.left - padding.right - labelW - valueW);
+                const rowH = (cssH - padding.top - padding.bottom) / data.length;
+                const barH = Math.min(22, rowH * 0.6);
+
+                data.forEach((d, i) => {
+                    const yCenter = padding.top + rowH * i + rowH / 2;
+                    const y = yCenter - barH / 2;
+                    const w = Math.max(3, (d.total / maxVal) * areaW);
+                    const xBar = padding.left + labelW;
+
+                    ctx.fillStyle = '#cbd5e1';
+                    ctx.font = '10px sans-serif';
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'middle';
+                    const labelTrunc = d.label.length > 18 ? d.label.slice(0, 17) + '…' : d.label;
+                    ctx.fillText(labelTrunc, padding.left, yCenter);
+
+                    const grad = ctx.createLinearGradient(xBar, 0, xBar + w, 0);
+                    grad.addColorStop(0, warnaBawah);
+                    grad.addColorStop(1, warnaAtas);
+                    ctx.fillStyle = grad;
+                    gambarRoundRectKanan(ctx, xBar, y, w, barH, 5);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#e2e8f0';
+                    ctx.font = 'bold 10px sans-serif';
+                    ctx.textAlign = 'left';
+                    ctx.fillText(formatRupiahSingkat(d.total), xBar + w + 6, yCenter);
+                });
+            } else {
+                const padding = { top: 22, right: 8, bottom: 22, left: 8 };
+                const areaH = cssH - padding.top - padding.bottom;
+                const areaW = cssW - padding.left - padding.right;
+                const gap = Math.min(14, areaW / (data.length * 4));
+                const barW = Math.max(6, (areaW - gap * (data.length + 1)) / data.length);
+
+                data.forEach((d, i) => {
+                    const x = padding.left + gap * (i + 1) + barW * i;
+                    const h = Math.max(2, (d.total / maxVal) * areaH);
+                    const y = padding.top + areaH - h;
+
+                    const grad = ctx.createLinearGradient(0, y, 0, y + h);
+                    grad.addColorStop(0, warnaAtas);
+                    grad.addColorStop(1, warnaBawah);
+                    ctx.fillStyle = grad;
+                    gambarRoundRectAtas(ctx, x, y, barW, h, 5);
+                    ctx.fill();
+
+                    if (h > 16) {
+                        ctx.fillStyle = '#e2e8f0';
+                        ctx.font = 'bold 9px sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'alphabetic';
+                        ctx.fillText(formatRupiahSingkat(d.total), x + barW / 2, y - 4);
+                    }
+
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.font = '9px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(d.label, x + barW / 2, cssH - padding.bottom + 14);
+                });
+            }
+        }
+
+        function renderGrafikLaporan() {
+            const dataLunas = dataFilteredSaatIni.filter(t => (t.status || 'lunas') === 'lunas');
+            const totalOmzet = dataLunas.reduce((a, t) => a + t.total, 0);
+            const rataRata = dataLunas.length ? totalOmzet / dataLunas.length : 0;
+
+            const elOmzet = document.getElementById('grafik-total-omzet');
+            const elRata = document.getElementById('grafik-rata-rata');
+            const elJumlah = document.getElementById('grafik-jumlah-transaksi');
+            const elPeriode = document.getElementById('grafik-periode-label');
+            if (elOmzet) elOmzet.innerText = formatRupiah(totalOmzet);
+            if (elRata) elRata.innerText = formatRupiah(Math.round(rataRata));
+            if (elJumlah) elJumlah.innerText = `${dataLunas.length} Transaksi`;
+            if (elPeriode) elPeriode.innerText = filterAktif.toUpperCase();
+
+            const tren = agregasiTrenHarian(dataFilteredSaatIni);
+            gambarBarChart('chart-tren', tren, { warna: '#059669', warna2: '#34d399', height: 200 });
+
+            const topProduk = agregasiTopProduk(dataFilteredSaatIni);
+            gambarBarChart('chart-top-produk', topProduk, {
+                horizontal: true,
+                warna: '#d97706',
+                warna2: '#fbbf24',
+                height: Math.max(120, topProduk.length * 38 + 20)
+            });
+        }
+
+        window.addEventListener('resize', () => {
+            if (modeLaporanAktif === 'grafik') renderGrafikLaporan();
+        });
+
+        // ===================== AKHIR GRAFIK LAPORAN =====================
 
         function ubahStatusPembayaran(id, statusBaru) {
             const trx = riwayatTransaksi.find(t => t.id === id);
@@ -1764,6 +2009,10 @@
             document.getElementById(`mob-${tab}`).className = "relative flex flex-col items-center text-emerald-400 text-[10px] font-medium";
             
             document.getElementById('page-title').innerText = `Mode ${tab.charAt(0).toUpperCase() + tab.slice(1)} (Offline)`;
+
+            if (tab === 'keuangan' && modeLaporanAktif === 'grafik') {
+                setTimeout(renderGrafikLaporan, 30);
+            }
         }
 
         function cetakStruk() { window.print(); }
@@ -1805,6 +2054,7 @@
         window.eksporBackupJSON = eksporBackupJSON;
         window.pilihFileImport = pilihFileImport;
         window.importBackupJSON = importBackupJSON;
+        window.setModeLaporan = setModeLaporan;
 
         muatData().then(() => {
             updateUI();
