@@ -51,6 +51,11 @@
             border-radius: 0.5rem;
             object-fit: cover;
         }
+        .toast-item {
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            opacity: 0;
+            transform: translateY(8px);
+        }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-100 flex flex-col md:flex-row h-screen overflow-hidden pb-16 md:pb-0">
@@ -593,6 +598,9 @@
         </div>
     </div>
 
+    <!-- TOAST NOTIFIKASI -->
+    <div id="toast-container" class="fixed bottom-20 md:bottom-6 right-4 z-[9999] flex flex-col items-end gap-2 pointer-events-none"></div>
+
     <!-- LOGIKA JAVASCRIPT -->
     <script>
       try {
@@ -814,11 +822,12 @@
 
         let totalBelanjaSaatIni = 0;
 
-        function updateUI() {
-            document.getElementById('display-nama-kasir').innerText = profilToko.kasir;
-            document.getElementById('struk-nama-toko').innerText = profilToko.nama;
-            document.getElementById('struk-alamat-toko').innerText = profilToko.alamat;
-
+        // Render bagian keranjang + preview struk SAJA (tanpa render tabel database,
+        // kartu stok, laporan/grafik, atau list produk cepat, dan tanpa menyimpan data).
+        // Dipisah dari updateUI() supaya aksi yang sering dipencet berkali-kali dalam
+        // satu transaksi (tambah/hapus item keranjang) tetap cepat & ringan, karena
+        // tidak perlu menggambar ulang tabel/daftar besar yang sebenarnya tidak berubah.
+        function renderKeranjangSaja() {
             const listEl = document.getElementById('keranjang-list');
             const strukItemsEl = document.getElementById('struk-items');
             let total = 0;
@@ -864,6 +873,23 @@
             document.getElementById('struk-waktu').innerText = formatWaktuLengkap(new Date());
             totalBelanjaSaatIni = total;
             hitungKembalian();
+        }
+
+        // Versi RINGAN: dipakai saat hanya keranjang yang berubah (tambah/hapus item).
+        // Tetap menyimpan data (supaya keranjang tersimpan bila aplikasi ditutup),
+        // tapi TIDAK menggambar ulang tabel database, kartu stok, laporan/grafik,
+        // dan list produk cepat yang tidak berubah oleh aksi ini.
+        function renderKeranjangRingan() {
+            renderKeranjangSaja();
+            return simpanData();
+        }
+
+        function updateUI() {
+            document.getElementById('display-nama-kasir').innerText = profilToko.kasir;
+            document.getElementById('struk-nama-toko').innerText = profilToko.nama;
+            document.getElementById('struk-alamat-toko').innerText = profilToko.alamat;
+
+            renderKeranjangSaja();
 
             renderDatabaseTable();
             renderStokCards();
@@ -1638,6 +1664,59 @@
             }
         }
 
+        // Suara singkat saat produk berhasil ditambahkan ke keranjang (nada beda
+        // dengan beep scan barcode, supaya tidak tumpang tindih saat scan barcode
+        // juga otomatis menambah ke keranjang).
+        function mainkanBeepTambah() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                if (ctx.state === 'suspended') ctx.resume();
+                const now = ctx.currentTime;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(700, now);
+                osc.frequency.exponentialRampToValueAtTime(1100, now + 0.08);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.1);
+                osc.onended = () => ctx.close();
+            } catch (err) {
+                console.warn('Suara tambah produk tidak aktif', err);
+            }
+        }
+
+        // Notifikasi kecil (toast) yang muncul sebentar lalu hilang sendiri,
+        // dipakai untuk konfirmasi visual "produk berhasil ditambahkan" tanpa
+        // mengganggu alur kerja seperti alert() yang harus di-klik OK dulu.
+        function tampilkanToast(pesan, tipe = 'sukses') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+
+            const warna = tipe === 'sukses'
+                ? 'bg-emerald-600/95 border-emerald-400/30'
+                : 'bg-slate-700/95 border-slate-500/30';
+
+            const toast = document.createElement('div');
+            toast.className = `toast-item pointer-events-auto ${warna} text-white text-xs font-semibold px-4 py-2.5 rounded-lg shadow-lg border max-w-[260px]`;
+            toast.textContent = pesan;
+            container.appendChild(toast);
+
+            requestAnimationFrame(() => {
+                toast.style.opacity = '1';
+                toast.style.transform = 'translateY(0)';
+            });
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(8px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 1500);
+        }
+
         // PERBAIKAN FUNGSI KAMERA (KASIR)
         async function mulaiScannerKasir() {
             try {
@@ -1660,7 +1739,7 @@
                     config,
                     (decodedText) => {
                         mainkanBeepScan();
-                        cariAtauTambahKeKasir(decodedText);
+                        cariAtauTambahKeKasir(decodedText, { beep: false });
                         stopScanner();
                     },
                     (errorMessage) => {}
@@ -1729,7 +1808,9 @@
             switchTab('kasir');
         }
 
-        function cariAtauTambahKeKasir(kode) {
+        function cariAtauTambahKeKasir(kode, opsi = {}) {
+            const mainkanSuara = opsi.beep !== false; // default true; scanner set false karena sudah beep sendiri
+
             const produk = masterDatabase.find(p => p.id === kode);
             if (!produk) {
                 alert(`Kode "${kode}" tidak ditemukan!`);
@@ -1756,7 +1837,9 @@
                 qty: 1,
                 info: `Kode: ${produk.id}`
             });
-            updateUI();
+            renderKeranjangRingan();
+            tampilkanToast(`✅ ${produk.nama} ditambahkan`);
+            if (mainkanSuara) mainkanBeepTambah();
         }
 
         function kompresGambar(file, maxDimensi = 400, kualitas = 0.6) {
@@ -1875,13 +1958,15 @@
                 });
                 document.getElementById('input-nama').value = "";
                 document.getElementById('input-harga').value = "";
-                updateUI();
+                renderKeranjangRingan();
+                tampilkanToast(`✅ ${nama} ditambahkan`);
+                mainkanBeepTambah();
             }
         }
 
         function hapusItem(index) {
             keranjang.splice(index, 1);
-            updateUI();
+            renderKeranjangRingan();
         }
 
         function hitungKembalian() {
