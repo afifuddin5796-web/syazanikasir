@@ -1,0 +1,14 @@
+{
+  "name": "irigasi",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Aplikasi pemantauan irigasi (peta, debit, laporan tanaman, LPR dan FPR)",
+  "license": "MIT",
+  "scripts": {
+    "test": "node tests/smoke.test.js",
+    "serve": "npx --yes serve ."
+  },
+  "devDependencies": {
+    "jsdom": "^24.0.0"
+  }
+}
