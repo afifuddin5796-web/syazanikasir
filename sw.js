@@ -1,79 +1,62 @@
-// NAIKKAN angka versi ini setiap kali kamu mengubah index.html / aset lain,
-// supaya cache lama (termasuk cache yang salah) otomatis dibuang.
-const CACHE_NAME = 'syazanikasir-cache-v2';
-
-// Aset lokal (harus benar-benar ada di repo)
-const LOCAL_ASSETS = [
+const CACHE_NAME = 'syazanikasir-cache-v1';
+const urlsToCache = [
   './',
   './index.html',
   './manifest.json',
-  './favicon.png'
-];
-
-// Library CDN yang dipakai index.html (URL harus SAMA persis dengan di index.html)
-const CDN_ASSETS = [
+  './localforage.min.js',
   'https://cdn.tailwindcss.com',
+  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
   'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
   'https://unpkg.com/html5-qrcode',
-  'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
-  'https://unpkg.com/localforage/dist/localforage.min.js'
+  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
 ];
 
+// Install: cache the app shell
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(async (cache) => {
-      // Satu per satu, supaya kalau ada 1 file gagal, install SW tidak ikut gagal.
-      await Promise.all(LOCAL_ASSETS.map((url) =>
-        cache.add(url).catch((err) => console.warn('Gagal cache lokal:', url, err))
-      ));
-      await Promise.all(CDN_ASSETS.map((url) =>
-        fetch(url, { mode: 'no-cors' })
-          .then((res) => cache.put(url, res))
-          .catch((err) => console.warn('Gagal cache CDN:', url, err))
-      ));
-    }).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(urlsToCache))
+      .then(() => self.skipWaiting())
   );
 });
 
+// Activate: clean up old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
-      .then(() => self.clients.claim())
+    caches.keys().then((keys) =>
+      Promise.all(
+        keys.map((key) => {
+          if (key !== CACHE_NAME) return caches.delete(key);
+        })
+      )
+    ).then(() => self.clients.claim())
   );
 });
 
+// Fetch: cache-first for app shell, fall back to network, and cache new GET responses
 self.addEventListener('fetch', (event) => {
-  const req = event.request;
-  if (req.method !== 'GET') return;
+  if (event.request.method !== 'GET') return;
 
-  // Halaman utama: NETWORK-FIRST (ambil versi terbaru kalau online,
-  // pakai cache hanya kalau offline). Ini yang mencegah aplikasi
-  // "nyangkut" di versi lama/salah seperti kejadian sebelumnya.
-  if (req.mode === 'navigate') {
-    event.respondWith(
-      fetch(req)
-        .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE_NAME).then((c) => c.put('./index.html', copy));
-          return res;
-        })
-        .catch(() => caches.match('./index.html'))
-    );
-    return;
-  }
-
-  // Aset lain: cache-first, lalu simpan hasil jaringan.
   event.respondWith(
-    caches.match(req).then((cached) => {
+    caches.match(event.request).then((cached) => {
       if (cached) return cached;
-      return fetch(req).then((res) => {
-        if (res && (res.status === 200 || res.type === 'opaque')) {
-          const copy = res.clone();
-          caches.open(CACHE_NAME).then((c) => c.put(req, copy));
-        }
-        return res;
-      });
+
+      return fetch(event.request)
+        .then((networkResponse) => {
+          // Don't try to cache opaque/error responses
+          if (!networkResponse || networkResponse.status !== 200) {
+            return networkResponse;
+          }
+          const responseClone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseClone);
+          });
+          return networkResponse;
+        })
+        .catch(() => {
+          // Optional: return a fallback page here if offline and not cached
+          return caches.match('./index.html');
+        });
     })
   );
 });
